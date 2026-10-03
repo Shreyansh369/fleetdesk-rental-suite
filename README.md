@@ -64,7 +64,15 @@ Sign in with any of these accounts; the password for all of them is `DemoPass123
 | `maria@demo.fleetdesk.app`, `james@demo.fleetdesk.app`, `priya@demo.fleetdesk.app` | Operations |
 | `tom@demo.fleetdesk.app` | Waiting for approval |
 
-The emulators start empty each time, so run `pnpm demo:seed` again after restarting them; it refuses to run on data that is already there. To seed a hosted demo project instead, point the `NEXT_PUBLIC_FIREBASE_*` values at it, sign in with `gcloud auth application-default login`, enable Email/Password sign-in, and run `pnpm demo:seed -- --remote --confirm=<projectId>`. It only seeds a project with no vehicles, so it cannot be pointed at an operator's live data by mistake.
+The emulators start empty each time, so run `pnpm demo:seed` again after restarting them; it refuses to run on data that is already there.
+
+### A hosted demo to share
+
+`pnpm demo:hosted` creates a new Firebase project on the free Spark plan, turns on email sign-in, creates Firestore and deploys its rules, publishes the app to Firebase Hosting, and loads the same demo data. It prints the link when it finishes (`https://<project>.web.app`).
+
+It needs the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install), Node 22+ and pnpm, and opens a browser to sign in to Google. On Windows, run it from Git Bash. Pass a project id to choose one (`pnpm demo:hosted -- my-demo-id`); otherwise one is generated. It only ever creates a new project, and the seed refuses a project that already has vehicles, so neither can be pointed at an operator's live data.
+
+Anyone with the link can sign in with the demo accounts and change the data, so share it only with the people you are presenting to.
 
 ## Inventory import
 
