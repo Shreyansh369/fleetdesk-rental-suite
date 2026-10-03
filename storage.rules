@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Roles live in Firestore (users/{uid}), not in custom claims: the workspace
+    // has no Admin SDK to mint claims with, so reading the profile is the only
+    // check that matches how staff are actually approved.
+    function staffProfile() { return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data; }
+    function isStaff() { return request.auth != null && staffProfile().status == "approved" && (staffProfile().role == "admin" || staffProfile().role == "operations"); }
+    function isSafeImage() { return request.resource.size > 0 && request.resource.size <= 10 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp)'); }
+    function isSafeDocument() { return request.resource.size > 0 && request.resource.size <= 5 * 1024 * 1024 && (request.resource.contentType == 'application/pdf' || request.resource.contentType.matches('image/(jpeg|png|webp)')); }
+    // Uploads are append-only. A compromised browser cannot replace evidence after it exists.
+    match /customer-documents/{customerId}/{fileId} { allow read: if isStaff(); allow create: if isStaff() && isSafeDocument(); allow update, delete: if false; }
+    match /vehicle-photos/{vehicleId}/{fileId} { allow read: if isStaff(); allow create: if isStaff() && isSafeImage(); allow update, delete: if false; }
+    match /inspection-photos/{rentalId}/{fileId} { allow read: if isStaff(); allow create: if isStaff() && isSafeImage(); allow update, delete: if false; }
+    match /rental-documents/{rentalId}/{fileId} { allow read: if isStaff(); allow create: if isStaff() && isSafeDocument(); allow update, delete: if false; }
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

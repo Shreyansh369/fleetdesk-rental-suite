@@ -1,0 +1,452 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /* =========================================================
+       AUTHENTICATION / STAFF
+       ========================================================= */
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUser() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function approvedUser() {
+      return signedIn()
+        && currentUser().status == "approved"
+        && (
+          currentUser().role == "admin"
+          || currentUser().role == "operations"
+        );
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && currentUser().status == "approved"
+        && currentUser().role == "admin";
+    }
+
+    function isOperations() {
+      return signedIn()
+        && currentUser().status == "approved"
+        && currentUser().role == "operations";
+    }
+
+    function isStaff() {
+      return isAdmin() || isOperations();
+    }
+
+
+    /* =========================================================
+       USERS / STAFF
+       ========================================================= */
+
+    match /users/{userId} {
+
+      /* Users can read themselves.
+         Admins can read all staff profiles. */
+      allow get: if signedIn()
+  && request.auth.uid == userId;
+
+/*
+ * Administrators can read other staff profiles.
+ */
+allow get: if isAdmin();
+
+/*
+ * Only admins can list staff.
+ */
+allow list: if isAdmin();
+
+      /* Signup creates its own pending profile.
+         A user cannot assign an approved role to itself. */
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.status == "pending"
+        && request.resource.data.role == null
+        && request.resource.data.requestedRole in [
+          "admin",
+          "operations"
+        ]
+        && request.resource.data.email
+            == request.auth.token.email;
+
+      /* Pending users may update only their
+         registration information. */
+      allow update: if signedIn()
+        && request.auth.uid == userId
+        && resource.data.role
+            == request.resource.data.role
+        && resource.data.status
+            == request.resource.data.status
+        && resource.data.requestedRole
+            == request.resource.data.requestedRole
+        && request.resource.data.diff(
+          resource.data
+        ).affectedKeys().hasOnly([
+          "fullName",
+          "mobile",
+          "age",
+          "email",
+          "updatedAt"
+        ]);
+
+      /* Only admins can approve, reject,
+         or change staff roles. */
+      allow update: if isAdmin();
+
+      /* Only admins can remove staff profiles. */
+      allow delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       VEHICLES
+       ========================================================= */
+
+    match /vehicles/{vehicleId} {
+
+      allow read: if isStaff();
+
+      allow create, update: if isStaff();
+
+      allow delete: if isAdmin();
+    }
+
+
+    match /vehicles/{vehicleId}/serviceRecords/{recordId} {
+
+      allow read: if isStaff();
+
+      allow create, update: if isStaff();
+
+      allow delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       VEHICLE UNIQUENESS CLAIMS
+       ========================================================= */
+
+    match /vehicleRegistry/{key} {
+
+      /* One document per registration number and VIN. Two
+         concurrent vehicle writes contend on the same claim,
+         so exactly one of them can take it. Staff may release
+         a claim when a vehicle is renamed. */
+      allow read, create, update, delete: if isStaff();
+    }
+
+
+    /* =========================================================
+       CUSTOMERS
+       ========================================================= */
+
+    match /customers/{customerId} {
+
+      allow read: if isStaff();
+
+      allow create, update: if isStaff();
+
+      allow delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       RESERVATIONS
+       ========================================================= */
+
+    match /reservations/{reservationId} {
+
+      allow read: if isStaff();
+
+      allow create: if isStaff();
+
+      /* A booking is only cancelled with a reason: the
+         cancelled list on Bookings says why each one went. */
+      allow update: if isStaff()
+        && (
+          request.resource.data.get("status", null)
+              != "cancelled"
+          || resource.data.get("status", null)
+              == "cancelled"
+          || (
+            request.resource.data.get(
+              "cancellationReason", null
+            ) is string
+            && request.resource.data.cancellationReason
+                .trim().size() > 0
+          )
+        );
+
+      allow delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       CONTRACT REVIEW AND FINALISATION
+       ========================================================= */
+
+    match /reservationContracts/{reservationId} {
+
+      allow read: if isStaff();
+
+      /* A contract enters the workflow already waiting for
+         review, so there is no separate draft record to keep
+         in step with the booking it describes. */
+      allow create: if isStaff()
+        && request.resource.data.status == "in_review"
+        && request.resource.data.version == 1;
+
+      /* Resubmission after a rejection. The version advances
+         so an approved snapshot is always attributable to
+         the round of review that produced it. */
+      allow update: if isStaff()
+        && resource.data.status == "rejected"
+        && request.resource.data.status == "in_review"
+        && request.resource.data.version
+            == resource.data.version + 1;
+
+      /* Only an administrator finalises a contract, and only
+         one that is actually waiting for review. An approved
+         contract is terminal: no later update matches. */
+      allow update: if isAdmin()
+        && resource.data.status == "in_review"
+        && request.resource.data.status in [
+          "approved",
+          "rejected"
+        ]
+        && request.resource.data.version
+            == resource.data.version;
+
+      allow delete: if false;
+    }
+
+
+    match /reservationContracts/{reservationId}/versions/{version} {
+
+      /* The frozen agreement: written once by the
+         administrator who approved it, and immutable from
+         then on, so what was sent can always be reproduced. */
+      allow read: if isStaff();
+
+      allow create: if isAdmin();
+
+      allow update, delete: if false;
+    }
+
+
+    match /reservationContracts/{reservationId}/deliveries/{deliveryId} {
+
+      /* Append-only delivery receipts recording when a
+         contract was emailed, to whom, and which version. */
+      allow read, create: if isStaff();
+
+      allow update, delete: if false;
+    }
+
+
+    /* =========================================================
+       RENTALS
+       ========================================================= */
+
+    match /rentals/{rentalId} {
+
+      allow read: if isStaff();
+
+      allow create, update: if isStaff();
+
+      allow delete: if isAdmin();
+    }
+
+
+    match /rentals/{rentalId}/inspections/{inspectionId} {
+
+      allow read: if isStaff();
+
+      allow create, update: if isStaff();
+
+      allow delete: if isAdmin();
+    }
+
+
+    match /rentals/{rentalId}/extensions/{extensionId} {
+
+      /* One record per extension, keyed by its idempotency
+         key. Append-only: an extension that has been priced
+         and charged cannot be rewritten from a browser. */
+      allow read, create: if isStaff();
+
+      allow update, delete: if false;
+    }
+
+
+    /* =========================================================
+       RENTAL FINANCIALS
+       ========================================================= */
+
+    match /rentalFinancials/{rentalId} {
+
+      allow read: if isStaff();
+
+      allow create, update: if isStaff();
+
+      allow delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       PAYMENTS
+       ========================================================= */
+
+    match /payments/{paymentId} {
+
+      allow read: if isStaff();
+
+      allow create: if isStaff();
+
+      allow update, delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       DISCOUNTS
+       ========================================================= */
+
+    match /rentalDiscounts/{discountId} {
+
+      allow read: if isStaff();
+
+      /* Anyone on staff may offer a discount, in their own
+         name, and it waits for an administrator. Only an
+         administrator's own discount may be approved as it
+         is written. */
+      allow create: if isStaff()
+        && request.resource.data.requestedBy
+            == request.auth.uid
+        && request.resource.data.amountCents is int
+        && request.resource.data.amountCents > 0
+        && (
+          request.resource.data.status == "pending"
+          || (
+            isAdmin()
+            && request.resource.data.status == "approved"
+          )
+        );
+
+      /* Only an administrator decides, only once, and never
+         by changing what was asked for. */
+      allow update: if isAdmin()
+        && resource.data.status == "pending"
+        && request.resource.data.status in [
+          "approved",
+          "rejected"
+        ]
+        && request.resource.data.rentalId
+            == resource.data.rentalId
+        && request.resource.data.amountCents
+            == resource.data.amountCents
+        && request.resource.data.requestedBy
+            == resource.data.requestedBy;
+
+      allow delete: if false;
+    }
+
+
+    /* =========================================================
+       REFUNDS
+       ========================================================= */
+
+    match /refunds/{refundId} {
+
+      allow read: if isAdmin();
+
+      allow create, update, delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       FINANCIAL LEDGER
+       ========================================================= */
+
+    match /financialLedger/{entryId} {
+
+      allow read: if isAdmin();
+
+      allow create: if isStaff();
+
+      allow update, delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       VEHICLE EXPENSES
+       ========================================================= */
+
+    match /vehicleExpenses/{expenseId} {
+
+      /* Recording an expense is operational work, so any
+         approved account may add one and read back what it
+         recorded itself — a query it can only run by
+         filtering on its own uid. Everybody else's entries,
+         and therefore the cost side of the business, stay
+         with an administrator. */
+      allow read: if isAdmin()
+        || (
+          isStaff()
+          && resource.data.recordedBy
+              == request.auth.uid
+        );
+
+      allow create: if isStaff()
+        && request.resource.data.recordedBy
+            == request.auth.uid;
+
+      allow update, delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       AUDIT LOGS
+       ========================================================= */
+
+    match /auditLogs/{auditId} {
+
+      allow read: if isAdmin();
+
+      allow create: if isStaff();
+
+      allow update, delete: if isAdmin();
+    }
+
+
+    /* =========================================================
+       IDEMPOTENCY
+       ========================================================= */
+
+    match /idempotencyKeys/{key} {
+
+      /* Records are create-only so a completed payment,
+         refund or expense cannot be replayed by clearing
+         its key. */
+      allow read, create: if isStaff();
+
+      allow update, delete: if false;
+    }
+
+
+    /* =========================================================
+       DEFAULT DENY
+       ========================================================= */
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

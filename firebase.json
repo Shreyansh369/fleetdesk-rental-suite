@@ -1,0 +1,73 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+
+  "storage": {
+    "rules": "storage.rules"
+  },
+
+  "functions": {
+    "source": "functions"
+  },
+
+  "hosting": {
+    "public": "out",
+
+    "//": "The Next.js static export writes customers.html rather than customers/index.html, so cleanUrls is what lets Hosting answer a direct load or refresh of /customers.",
+    "cleanUrls": true,
+
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "//csp": "connect-src lists every origin the browser may call. Adding an outbound integration means adding its origin here, or the policy blocks the request.",
+
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Content-Security-Policy",
+            "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://res.cloudinary.com https://firebasestorage.googleapis.com; connect-src 'self' https://api.cloudinary.com https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://www.google.com https://www.recaptcha.net; object-src 'none'; base-uri 'self'; form-action 'self'"
+          },
+          {
+            "key": "X-Content-Type-Options",
+            "value": "nosniff"
+          },
+          {
+            "key": "X-Frame-Options",
+            "value": "DENY"
+          },
+          {
+            "key": "Referrer-Policy",
+            "value": "strict-origin-when-cross-origin"
+          },
+          {
+            "key": "Permissions-Policy",
+            "value": "camera=(self), geolocation=(), microphone=()"
+          }
+        ]
+      }
+    ]
+  },
+
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "storage": {
+      "port": 9199
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  }
+}

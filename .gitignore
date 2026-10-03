@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+functions/lib/
+functions/node_modules/
+.env.local
+.env.*.local
+.firebase/
+reports/
+*.log
+*.tsbuildinfo
+service-account*.json
+
+# Written by `next dev` for AI tooling; not part of the deliverable.
+AGENTS.md
+CLAUDE.md
