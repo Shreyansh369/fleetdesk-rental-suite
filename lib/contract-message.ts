@@ -206,7 +206,7 @@ export function agreementBody(
     "",
     AGREEMENT_NOTICES.property,
     "",
-    `${AGREEMENT_NOTICES.ocean} ${AGREEMENT_NOTICES.keepLeft}`,
+    `${AGREEMENT_NOTICES.territory} ${AGREEMENT_NOTICES.traffic}`,
     "",
     "The signed copy, with the full terms and conditions, is attached.",
   );

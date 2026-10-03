@@ -6370,7 +6370,7 @@ canvas {
   overflow-wrap: anywhere;
 }
 
-.sheet-ocean {
+.sheet-territory {
   display: grid;
   gap: 2px;
   margin: 2px 0 0;

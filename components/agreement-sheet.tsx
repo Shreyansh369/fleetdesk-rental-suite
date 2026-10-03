@@ -385,10 +385,10 @@ export function AgreementSheet({
               </p>
             </div>
 
-            <p className="sheet-ocean">
-              <em>{AGREEMENT_NOTICES.ocean}</em>
+            <p className="sheet-territory">
+              <em>{AGREEMENT_NOTICES.territory}</em>
               <strong>
-                {AGREEMENT_NOTICES.keepLeft}
+                {AGREEMENT_NOTICES.traffic}
               </strong>
             </p>
           </div>

@@ -1,5 +1,5 @@
 /*
- * The rental agreement the office already uses on paper.
+ * The rental agreement printed for every hire.
  *
  * The wording below is sample legal text for demonstration.
  * Replace it with the operator's own agreement before going live:
@@ -17,70 +17,71 @@ export const COMPANY = {
     "100 Example Street, Springfield, 00000",
 } as const;
 
-/** Charge defaults, taken from the terms overleaf. */
+/** Charge defaults, quoted in the terms below. */
 export const AGREEMENT_RATES = {
-  /** Clause 9: "$20 per ¼ tank of fuel". */
-  fuelPerQuarterTankCents: 2_000,
+  /** Fuel clause: "$25 per ¼ tank". */
+  fuelPerQuarterTankCents: 2_500,
 
-  /** Clause 10: "A detailing fee of $120". */
-  detailingCents: 12_000,
+  /** Cleaning clause: "a cleaning fee of $150". */
+  detailingCents: 15_000,
 
-  /** Clause 13: "$10 per day" for drivers under 25. */
-  underAgeInsurancePerDayCents: 1_000,
+  /** Young driver clause: "$15 per day" for drivers under 25. */
+  underAgeInsurancePerDayCents: 1_500,
 
   /** Printed on the form as a fixed figure. */
-  depositCents: 30_000,
+  depositCents: 25_000,
 
-  /** Clauses 1 and 3: the collision deductible. */
-  collisionDeductibleCents: 150_000,
+  /** Insurance clauses: the collision deductible. */
+  collisionDeductibleCents: 100_000,
 } as const;
 
 export const AGREEMENT_NOTICES = {
   property:
-    "THE MONEY YOU PAY GIVES YOU THE PRIVILEGE OF THE USE OF OUR PROPERTY AND NOT THE RIGHT TO ABUSE OR DISREGARD IT.",
+    "PLEASE TREAT THIS VEHICLE AS YOUR OWN. YOU ARE RESPONSIBLE FOR ITS CARE WHILE IT IS IN YOUR POSSESSION.",
 
-  ocean:
-    "It is a violation to transport vehicle across the ocean",
+  territory:
+    "The vehicle may not be taken outside the permitted operating area, including by ferry or other transport, without written consent.",
 
-  keepLeft: "ALWAYS KEEP LEFT!",
+  traffic: "Obey all local traffic laws.",
 
   acknowledgement:
-    "I have read and understood the terms and conditions of this agreement and the overleaf and agree thereto.",
+    "I have read and understood the terms and conditions of this agreement and agree to be bound by them.",
 } as const;
 
 /*
- * Reproduced verbatim from the second page of the agreement.
- * Do not correct the spelling: this is the text the renter is
- * agreeing to, and it has to match the paper copy word for word.
+ * Sample terms and conditions for demonstration. Each operator
+ * should replace these with terms reviewed for their own
+ * jurisdiction; the figures quoted here come from
+ * AGREEMENT_RATES above and must be kept in step with it.
  */
 export const AGREEMENT_TERMS: readonly string[] = [
-  "This vehicle has LIABILITY INSURANCE coverage, and $1,500.00 deductible COLLISION INSURANCE. The renter assumes responsibility for all damages to the vehicle, and claims against the owner not covered by this insurance.",
+  "The vehicle is covered by third-party liability insurance and collision insurance subject to a $1,000.00 deductible. The renter is responsible for any damage to the vehicle, and any claim against the owner, not covered by that insurance.",
 
-  "No one under 25 years of age may drive this vehicle unless covered by this insurance. This would invalidate insurance coverage. In the event the renter permits anyone under 25 to drive the vehicle he/she, the renter, assumes responsibility for all damages to the car and all claims against the owner of the vehicle rented.",
+  "Only drivers named on this agreement may operate the vehicle. Allowing an unlisted driver to operate it may void the insurance cover, and the renter is then responsible for all resulting damage and claims.",
 
-  "Renter assumes responsibility for all damage to the vehicle not covered by insurance, such as the $1,500.00 deductible, as well as any damages to top or windsheild caused by removing the top or opening the windsheild. In addition, renter is responsible for towing charges incurred by driving the vehicle on washed-out roads, walking trails, beaches, flat tires, traffic violations, etc...",
+  "The renter is responsible for the insurance deductible and for any damage not covered by insurance, including damage caused by driving off paved roads, on beaches or trails, through flood water, or by misuse of the vehicle, and for any resulting towing or recovery charges.",
 
-  "Renter also certifies that all persons who will drive this vehicle have no defect to vision, hearing, nor physical disabilities.",
+  "The renter confirms that every authorised driver holds a valid driving licence and is fit to drive.",
 
-  "Renter/driver shall be responsible for all damages, injuries or death, resulting from his/her operation of the vehicle or his/her negligence, and shall hold and indemnify Demo Car Rental of and from any claim, suit or expensive arising therefrom.",
+  "The renter is responsible for all loss, damage, injury or death arising from the renter's or any driver's operation of the vehicle or negligence, and agrees to indemnify the rental company against any resulting claim, suit or expense.",
 
-  "It is expressly understood and agreed that the renter/driver is not the agent, employee or servant of Demo Car Rentals in any manner whatsoever.",
+  "The renter and any driver act on their own behalf and are not agents or employees of the rental company.",
 
-  "If the vehicle is not returned at the specific time and place it will be deemed converted and treated as theft of the vehicle and/or is subject to an additional day(s) rent.",
+  "The vehicle must be returned at the agreed date, time and place. A vehicle not returned as agreed may be reported as stolen, and additional days' rent will be charged.",
 
-  "The renter / driver agrees to personally check the vehicle he/she is about to use, and refuse any vehicle with damage or functional defects.",
+  "The renter must inspect the vehicle before departure and report any existing damage or defect, which will be recorded on this agreement.",
 
-  "Vehicle must be returned on gas level it was rented on. If not the renter will be charged $20 per ¼ tank of fuel.",
+  "The vehicle must be returned with the same fuel level as at checkout. Otherwise a refuelling charge of $25 per ¼ tank applies.",
 
-  "A detailing fee of $120 may apply in circumstances including, but not limited to, where the vehicle is returned with evidence of sand, dirt, mud, and smoking.",
+  "A cleaning fee of $150 may apply if the vehicle is returned excessively dirty, including sand, mud, pet hair or evidence of smoking.",
 
-  "Renter / driver must remove all items from said vehicle upon return, Demo Car Rentals would not be liable for items left in vehicle after return date.",
+  "The rental company is not responsible for personal belongings left in the vehicle after its return.",
 
-  "It is agreed that in the even the keys for the said vehicle is lost or locked in the vehicle the renter / driver is responsible for the replacement cost or any fees related to retrieving of the keys.",
+  "The renter is responsible for the cost of replacing lost keys and any charges for recovering keys locked inside the vehicle.",
 
-  "Drivers under the age of 25 are subject to an insurance premium of $10 per day.",
+  "Drivers under 25 years of age are subject to a young driver insurance charge of $15 per day.",
 
-  "The Renter will be liable for any parking charges incurred.",
+  "The renter is responsible for all traffic fines, parking charges and tolls incurred during the rental.",
 ];
 
 /** The gas levels the form prints, in the order it prints them. */
