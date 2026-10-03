@@ -35,6 +35,37 @@ Secure, white-label operations software for car rental businesses: bookings, che
 
 The application refuses to initialise Firebase until all public configuration values are present. Set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` for local work.
 
+## Demo data
+
+To show the application to a prospective operator, fill the local emulators with fictional data — every name, number, address and vehicle is invented:
+
+```powershell
+pnpm exec firebase emulators:start --only auth,firestore,storage --project demo-fleetdesk
+# in a second terminal
+pnpm demo:seed
+pnpm dev
+```
+
+For `pnpm dev`, `.env.local` needs `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-fleetdesk`, and any non-empty placeholder for the other `NEXT_PUBLIC_FIREBASE_*` values.
+
+The seed signs in as each staff member and runs the same workflows the screens use, so it produces:
+
+- 14 vehicles, one due for service, one in the workshop and one with insurance about to expire
+- 18 customers, and about six months of finished rentals and running costs, so Finance has history to report on
+- Bookings coming up, vehicles out on hire, one overdue, one returned today with fuel and cleaning to settle, and payments taken
+- Two cancelled bookings with their reasons, a discount waiting for approval, one approved agreement and one waiting for review
+- A staff sign-up waiting on the **Staff** screen
+
+Sign in with any of these accounts; the password for all of them is `DemoPass123!`:
+
+| Account | Role |
+| --- | --- |
+| `admin@demo.fleetdesk.app` | Administrator |
+| `maria@demo.fleetdesk.app`, `james@demo.fleetdesk.app`, `priya@demo.fleetdesk.app` | Operations |
+| `tom@demo.fleetdesk.app` | Waiting for approval |
+
+The emulators start empty each time, so run `pnpm demo:seed` again after restarting them; it refuses to run on data that is already there. To seed a hosted demo project instead, point the `NEXT_PUBLIC_FIREBASE_*` values at it, sign in with `gcloud auth application-default login`, enable Email/Password sign-in, and run `pnpm demo:seed -- --remote --confirm=<projectId>`. It only seeds a project with no vehicles, so it cannot be pointed at an operator's live data by mistake.
+
 ## Inventory import
 
 A sample workbook with fictional vehicles is in `samples/sample-inventory.xlsx`; an operator's own workbook needs the same `INVENTORY` sheet layout. The import deliberately flags missing VINs, years, insurance expirations, and rates; it does not silently invent values.

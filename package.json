@@ -20,6 +20,7 @@
     "import:inventory": "tsx scripts/import-inventory.ts",
     "bootstrap:staff": "tsx scripts/bootstrap-staff.ts",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
+    "demo:seed": "tsx scripts/seed-demo.ts",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:rules && pnpm build"
   },
   "dependencies": {
