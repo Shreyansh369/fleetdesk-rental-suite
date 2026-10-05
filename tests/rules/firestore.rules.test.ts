@@ -6,8 +6,8 @@ import {
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
 import {
-  collection,
-  doc,
+  collection as rootCollection,
+  doc as rootDoc,
   getDoc,
   getDocs,
   limit,
@@ -16,15 +16,38 @@ import {
   updateDoc,
   deleteDoc,
   where,
+  type Firestore,
 } from "firebase/firestore";
 import { afterAll, beforeAll, describe, it } from "vitest";
 
+import { scopedSegments } from "../../lib/data/firestore";
+
 /*
- * Roles are resolved from users/{uid} rather than from custom
- * claims: the workspace has no Admin SDK to mint claims with, so
- * a staff profile is what these tests have to seed.
+ * Roles are resolved from workspaces/{id}/users/{uid} rather
+ * than from custom claims: the workspace has no Admin SDK to mint
+ * claims with, so a staff profile is what these tests have to
+ * seed.
+ *
+ * The single-workspace policy below runs inside one paid
+ * workspace, addressed exactly as the application addresses it:
+ * a path such as ("vehicles", id) is placed under
+ * workspaces/{WORKSPACE}/ by the same scoping the client uses.
+ * The multi-workspace policy — trials, invites, expiry and
+ * isolation — follows it and addresses paths in full.
  */
 let testEnv: RulesTestEnvironment;
+
+const WORKSPACE = "ws-main";
+
+function doc(db: Firestore, ...segments: string[]) {
+  const [first, ...rest] = scopedSegments(segments, WORKSPACE);
+  return rootDoc(db, first, ...rest);
+}
+
+function collection(db: Firestore, ...segments: string[]) {
+  const [first, ...rest] = scopedSegments(segments, WORKSPACE);
+  return rootCollection(db, first, ...rest);
+}
 
 const ADMIN = "admin-user";
 const OPS = "ops-user";
@@ -37,7 +60,23 @@ beforeAll(async () => {
   });
 
   await testEnv.withSecurityRulesDisabled(async (context) => {
-    const db = context.firestore();
+    const db = context.firestore() as unknown as Firestore;
+
+    await setDoc(rootDoc(db, "workspaces", WORKSPACE), {
+      name: "Main Rentals",
+      ownerUid: ADMIN,
+      adminEmail: "admin@example.test",
+      plan: "paid",
+      trialStartedAt: new Date(Date.now() - 40 * 86_400_000),
+      paidAt: new Date(Date.now() - 30 * 86_400_000),
+    });
+
+    for (const uid of [ADMIN, OPS, PENDING, "removable-user"]) {
+      await setDoc(rootDoc(db, "accounts", uid), {
+        workspaceId: WORKSPACE,
+        email: `${uid}@example.test`,
+      });
+    }
 
     await setDoc(doc(db, "users", ADMIN), {
       email: "admin@example.test",
@@ -145,13 +184,15 @@ afterAll(async () => {
   await testEnv.cleanup();
 });
 
-function asUser(uid: string) {
-  return testEnv.authenticatedContext(uid).firestore();
+function asUser(uid: string, email?: string): Firestore {
+  return testEnv
+    .authenticatedContext(uid, email ? { email } : undefined)
+    .firestore() as unknown as Firestore;
 }
 
 describe("Firestore access policy", () => {
   it("denies unauthenticated access to every collection", async () => {
-    const db = testEnv.unauthenticatedContext().firestore();
+    const db = testEnv.unauthenticatedContext().firestore() as unknown as Firestore;
 
     await assertFails(getDoc(doc(db, "vehicles", "vehicle_001")));
     await assertFails(getDoc(doc(db, "customers", "customer_001")));
@@ -723,7 +764,7 @@ describe("Firestore access policy", () => {
       getDocs(
         query(
           collection(
-            testEnv.unauthenticatedContext().firestore(),
+            testEnv.unauthenticatedContext().firestore() as unknown as Firestore,
             "reservationContracts",
           ),
           where("status", "in", ["in_review", "rejected"]),
@@ -783,5 +824,271 @@ describe("Firestore access policy", () => {
     await assertFails(
       updateDoc(doc(db, "users", PENDING), { status: "approved", role: "operations" }),
     );
+  });
+});
+
+describe("Workspaces, trials and licences", () => {
+  const DAY = 86_400_000;
+
+  /*
+   * The writes the trial page makes, in one batch: the
+   * workspace, the owner's account entry and administrator
+   * profile, and the claim on the owner's email.
+   */
+  async function startTrial(
+    uid: string,
+    email: string,
+    workspaceId: string,
+    overrides: Record<string, unknown> = {},
+  ) {
+    const db = asUser(uid, email);
+    const { serverTimestamp, writeBatch } = await import("firebase/firestore");
+    const batch = writeBatch(db);
+
+    batch.set(rootDoc(db, "workspaces", workspaceId), {
+      name: "Sunrise Car Hire",
+      ownerUid: uid,
+      adminEmail: email,
+      plan: "trial",
+      trialStartedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      ...overrides,
+    });
+    batch.set(rootDoc(db, "trialEmails", email), {
+      uid,
+      workspaceId,
+      createdAt: serverTimestamp(),
+    });
+    batch.set(rootDoc(db, "accounts", uid), {
+      workspaceId,
+      email,
+      createdAt: serverTimestamp(),
+    });
+    batch.set(rootDoc(db, "workspaces", workspaceId, "users", uid), {
+      fullName: "Sam Owner",
+      email,
+      requestedRole: "admin",
+      role: "admin",
+      status: "approved",
+    });
+
+    return batch.commit();
+  }
+
+  async function seedWorkspace(
+    workspaceId: string,
+    plan: string,
+    trialStartedAt: Date,
+    members: Array<{ uid: string; role: "admin" | "operations" }>,
+  ) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore() as unknown as Firestore;
+
+      await setDoc(rootDoc(db, "workspaces", workspaceId), {
+        name: workspaceId,
+        ownerUid: members[0].uid,
+        adminEmail: `${members[0].uid}@example.test`,
+        plan,
+        trialStartedAt,
+      });
+
+      for (const member of members) {
+        await setDoc(rootDoc(db, "accounts", member.uid), {
+          workspaceId,
+          email: `${member.uid}@example.test`,
+        });
+        await setDoc(rootDoc(db, "workspaces", workspaceId, "users", member.uid), {
+          email: `${member.uid}@example.test`,
+          role: member.role,
+          status: "approved",
+          requestedRole: member.role,
+        });
+      }
+
+      await setDoc(rootDoc(db, "workspaces", workspaceId, "vehicles", "v1"), {
+        registrationNumber: `${workspaceId}-1`,
+      });
+    });
+  }
+
+  it("starts a trial for a new account, as its administrator", async () => {
+    await assertSucceeds(startTrial("trial-owner", "owner@sunrise.test", "ws-sunrise"));
+
+    const db = asUser("trial-owner", "owner@sunrise.test");
+
+    await assertSucceeds(getDoc(rootDoc(db, "workspaces", "ws-sunrise")));
+    await assertSucceeds(setDoc(rootDoc(db, "workspaces", "ws-sunrise", "vehicles", "v9"), { registrationNumber: "SR-9" }));
+    await assertSucceeds(getDocs(rootCollection(db, "workspaces", "ws-sunrise", "users")));
+  });
+
+  it("allows one trial per email address", async () => {
+    await assertFails(startTrial("second-owner", "owner@sunrise.test", "ws-again"));
+  });
+
+  it("allows one workspace per account", async () => {
+    await assertFails(startTrial("trial-owner", "other@sunrise.test", "ws-another"));
+  });
+
+  it("only starts a trial — never a paid or backdated workspace", async () => {
+    await assertFails(startTrial("cheat-1", "cheat1@example.test", "ws-cheat-1", { plan: "paid" }));
+    await assertFails(
+      startTrial("cheat-2", "cheat2@example.test", "ws-cheat-2", {
+        trialStartedAt: new Date(Date.now() + 365 * DAY),
+      }),
+    );
+    await assertFails(
+      startTrial("cheat-3", "someone-else@example.test", "ws-cheat-3", {
+        adminEmail: "victim@example.test",
+      }),
+    );
+  });
+
+  it("never creates an approved administrator in a workspace that already exists", async () => {
+    const db = asUser("intruder", "intruder@example.test");
+
+    await assertFails(
+      setDoc(rootDoc(db, "workspaces", WORKSPACE, "users", "intruder"), {
+        email: "intruder@example.test",
+        requestedRole: "admin",
+        role: "admin",
+        status: "approved",
+      }),
+    );
+  });
+
+  it("lets a colleague join from the invite link, pending approval", async () => {
+    const db = asUser("joiner", "joiner@example.test");
+    const { serverTimestamp, writeBatch } = await import("firebase/firestore");
+
+    const join = (role: string | null, status: string) => {
+      const batch = writeBatch(db);
+      batch.set(rootDoc(db, "accounts", "joiner"), {
+        workspaceId: WORKSPACE,
+        email: "joiner@example.test",
+        createdAt: serverTimestamp(),
+      });
+      batch.set(rootDoc(db, "workspaces", WORKSPACE, "users", "joiner"), {
+        fullName: "Jo Iner",
+        email: "joiner@example.test",
+        requestedRole: "operations",
+        role,
+        status,
+      });
+      return batch.commit();
+    };
+
+    await assertFails(join("operations", "approved"));
+    await assertSucceeds(join(null, "pending"));
+
+    /* Pending: the profile and the workspace are visible, the data is not. */
+    await assertSucceeds(getDoc(rootDoc(db, "workspaces", WORKSPACE, "users", "joiner")));
+    await assertFails(getDoc(rootDoc(db, "workspaces", WORKSPACE, "vehicles", "vehicle_001")));
+
+    /* And the account cannot be moved to another workspace. */
+    await assertFails(
+      setDoc(rootDoc(db, "accounts", "joiner"), { workspaceId: "ws-sunrise", email: "joiner@example.test" }),
+    );
+  });
+
+  it("refuses an invite to a workspace that does not exist", async () => {
+    const db = asUser("lost", "lost@example.test");
+    const { serverTimestamp } = await import("firebase/firestore");
+
+    await assertFails(
+      setDoc(rootDoc(db, "accounts", "lost"), {
+        workspaceId: "ws-nowhere",
+        email: "lost@example.test",
+        createdAt: serverTimestamp(),
+      }),
+    );
+  });
+
+  it("keeps each workspace's data to its own members", async () => {
+    await seedWorkspace("ws-other", "paid", new Date(Date.now() - 60 * DAY), [
+      { uid: "other-admin", role: "admin" },
+    ]);
+
+    await assertFails(getDoc(rootDoc(asUser(ADMIN), "workspaces", "ws-other", "vehicles", "v1")));
+    await assertFails(getDoc(rootDoc(asUser(ADMIN), "workspaces", "ws-other")));
+    await assertFails(getDocs(rootCollection(asUser(ADMIN), "workspaces", "ws-other", "users")));
+    await assertFails(getDoc(rootDoc(asUser("other-admin"), "workspaces", WORKSPACE, "vehicles", "vehicle_001")));
+    await assertSucceeds(getDoc(rootDoc(asUser("other-admin"), "workspaces", "ws-other", "vehicles", "v1")));
+  });
+
+  it("opens a trial for seven days and closes it after", async () => {
+    await seedWorkspace("ws-day-six", "trial", new Date(Date.now() - 6 * DAY), [
+      { uid: "six-admin", role: "admin" },
+      { uid: "six-ops", role: "operations" },
+    ]);
+    await seedWorkspace("ws-day-eight", "trial", new Date(Date.now() - 8 * DAY), [
+      { uid: "eight-admin", role: "admin" },
+      { uid: "eight-ops", role: "operations" },
+    ]);
+
+    await assertSucceeds(getDoc(rootDoc(asUser("six-ops"), "workspaces", "ws-day-six", "vehicles", "v1")));
+    await assertSucceeds(setDoc(rootDoc(asUser("six-admin"), "workspaces", "ws-day-six", "customers", "c1"), { fullName: "C" }));
+
+    for (const uid of ["eight-admin", "eight-ops"]) {
+      const db = asUser(uid);
+
+      await assertFails(getDoc(rootDoc(db, "workspaces", "ws-day-eight", "vehicles", "v1")));
+      await assertFails(setDoc(rootDoc(db, "workspaces", "ws-day-eight", "customers", "c1"), { fullName: "C" }));
+      /* What it takes to show the paywall stays readable. */
+      await assertSucceeds(getDoc(rootDoc(db, "workspaces", "ws-day-eight")));
+      await assertSucceeds(getDoc(rootDoc(db, "workspaces", "ws-day-eight", "users", uid)));
+    }
+  });
+
+  it("opens an expired trial again once it is paid", async () => {
+    await seedWorkspace("ws-paid-late", "paid", new Date(Date.now() - 20 * DAY), [
+      { uid: "late-admin", role: "admin" },
+    ]);
+
+    await assertSucceeds(getDoc(rootDoc(asUser("late-admin"), "workspaces", "ws-paid-late", "vehicles", "v1")));
+  });
+
+  it("never lets a browser mark a workspace paid or extend its trial", async () => {
+    const db = asUser("eight-admin");
+
+    await assertFails(updateDoc(rootDoc(db, "workspaces", "ws-day-eight"), { plan: "paid" }));
+    await assertFails(updateDoc(rootDoc(db, "workspaces", "ws-day-eight"), { trialStartedAt: new Date() }));
+    await assertFails(updateDoc(rootDoc(db, "workspaces", "ws-day-eight"), { paidAt: new Date() }));
+  });
+
+  it("lets an administrator record a completed checkout once", async () => {
+    const { serverTimestamp } = await import("firebase/firestore");
+
+    await assertFails(
+      updateDoc(rootDoc(asUser("eight-ops"), "workspaces", "ws-day-eight"), {
+        paymentSubmittedAt: serverTimestamp(),
+      }),
+    );
+
+    const db = asUser("eight-admin");
+
+    await assertFails(
+      updateDoc(rootDoc(db, "workspaces", "ws-day-eight"), {
+        paymentSubmittedAt: new Date(Date.now() - DAY),
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(rootDoc(db, "workspaces", "ws-day-eight"), {
+        paymentSubmittedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      updateDoc(rootDoc(db, "workspaces", "ws-day-eight"), {
+        paymentSubmittedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(
+      updateDoc(rootDoc(db, "workspaces", "ws-day-eight"), { name: "Eight Day Rentals" }),
+    );
+  });
+
+  it("keeps the trial claims and account index private", async () => {
+    await assertFails(getDocs(rootCollection(asUser(ADMIN), "trialEmails")));
+    await assertFails(getDoc(rootDoc(asUser(ADMIN, "admin@example.test"), "trialEmails", "owner@sunrise.test")));
+    await assertFails(getDoc(rootDoc(asUser(ADMIN), "accounts", OPS)));
   });
 });

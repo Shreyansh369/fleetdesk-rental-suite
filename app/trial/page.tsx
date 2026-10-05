@@ -1,10 +1,10 @@
 import { LiveOnly } from "@/components/live-only";
 import { SignupForm } from "@/components/signup-form";
 
-export default function SignupPage() {
+export default function TrialPage() {
   return (
     <LiveOnly>
-      <SignupForm />
+      <SignupForm variant="trial" />
     </LiveOnly>
   );
 }

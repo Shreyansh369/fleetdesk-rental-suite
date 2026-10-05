@@ -10,19 +10,21 @@ import {
 } from "firebase/auth";
 
 import {
-  doc,
-  runTransaction,
-  serverTimestamp,
-} from "firebase/firestore";
-
-import {
   useRouter,
 } from "next/navigation";
 
 import {
+  useEffect,
   useState,
   type FormEvent,
 } from "react";
+
+import {
+  createTrialWorkspace,
+  joinWorkspace,
+} from "@/lib/services/workspace";
+import { TRIAL_DAYS } from "@/lib/license";
+import { reloadInto } from "@/lib/data/mode";
 
 import {
   getFirebaseClient,
@@ -70,8 +72,46 @@ function GoogleMark() {
   );
 }
 
-export function SignupForm() {
+/*
+ * One registration form, two ways in:
+ *
+ * - "trial": a new operator starts a 7-day trial. The account
+ *   becomes the administrator of a new workspace straight away.
+ * - "join": a colleague opens the invite link an administrator
+ *   shared (/signup?workspace=…) and waits for approval.
+ */
+export function SignupForm({
+  variant = "join",
+}: {
+  variant?: "join" | "trial";
+}) {
   const router = useRouter();
+  const trial = variant === "trial";
+
+  const [companyName, setCompanyName] =
+    useState("");
+
+  /* Read after mount: the static export has no request to read it from. */
+  const [workspaceId, setWorkspaceId] =
+    useState<string | null | undefined>(
+      undefined,
+    );
+
+  useEffect(() => {
+    const value = new URLSearchParams(
+      window.location.search,
+    )
+      .get("workspace")
+      ?.trim();
+
+    queueMicrotask(() =>
+      setWorkspaceId(
+        value && /^[A-Za-z0-9_-]{1,128}$/.test(value)
+          ? value
+          : null,
+      ),
+    );
+  }, []);
 
   const [method, setMethod] =
     useState<AuthMethod>("choose");
@@ -214,30 +254,45 @@ export function SignupForm() {
         );
       }
 
-      if (
-        !Number.isInteger(
-          numericAge,
-        ) ||
-        numericAge < 18 ||
-        numericAge > 100
-      ) {
-        throw new Error(
-          "Enter a valid age.",
-        );
-      }
+      if (trial) {
+        if (
+          companyName.trim().length < 2
+        ) {
+          throw new Error(
+            "Enter your company name.",
+          );
+        }
+      } else {
+        if (!workspaceId) {
+          throw new Error(
+            "Open the invite link your administrator sent you to join their workspace.",
+          );
+        }
 
-      if (
-        requestedRole !== "admin" &&
-        requestedRole !== "operations"
-      ) {
-        throw new Error(
-          "Select a requested role.",
-        );
+        if (
+          !Number.isInteger(
+            numericAge,
+          ) ||
+          numericAge < 18 ||
+          numericAge > 100
+        ) {
+          throw new Error(
+            "Enter a valid age.",
+          );
+        }
+
+        if (
+          requestedRole !== "admin" &&
+          requestedRole !== "operations"
+        ) {
+          throw new Error(
+            "Select a requested role.",
+          );
+        }
       }
 
       const {
         auth,
-        db,
       } = getFirebaseClient();
 
       let uid: string;
@@ -287,68 +342,50 @@ export function SignupForm() {
         );
       }
 
-      const profileRef =
-        doc(
-          db,
-          "users",
+      const accountEmail =
+        method === "google"
+          ? googleUser?.email
+              ?.trim()
+              .toLowerCase() ??
+            cleanEmail
+          : cleanEmail;
+
+      const emailVerified =
+        method === "google"
+          ? googleUser?.emailVerified ??
+            false
+          : false;
+
+      if (trial) {
+        await createTrialWorkspace({
           uid,
-        );
+          email: accountEmail,
+          emailVerified,
+          companyName,
+          fullName: cleanName,
+          mobile: cleanMobile,
+        });
 
-      await runTransaction(
-        db,
-        async (transaction) => {
-          const existing =
-            await transaction.get(
-              profileRef,
-            );
+        /*
+         * The new administrator goes straight in. A full load
+         * starts the workspace listeners from scratch, now
+         * that the account belongs to a workspace.
+         */
+        reloadInto("/");
+        return;
+      }
 
-          if (existing.exists()) {
-            throw new Error(
-              "A staff profile already exists for this account. Please sign in instead.",
-            );
-          }
-
-          transaction.set(
-            profileRef,
-            {
-              fullName:
-                cleanName,
-
-              email:
-                method === "google"
-                  ? googleUser?.email
-                      ?.trim()
-                      .toLowerCase() ??
-                    cleanEmail
-                  : cleanEmail,
-
-              mobile:
-                cleanMobile,
-
-              age:
-                numericAge,
-
-              requestedRole,
-
-              role: null,
-
-              status: "pending",
-
-              emailVerified:
-                method === "google"
-                  ? googleUser?.emailVerified ??
-                    false
-                  : false,
-
-              createdAt:
-                serverTimestamp(),
-
-              updatedAt:
-                serverTimestamp(),
-            },
-          );
-        },
-      );
+      await joinWorkspace({
+        workspaceId: workspaceId!,
+        uid,
+        email: accountEmail,
+        emailVerified,
+        fullName: cleanName,
+        mobile: cleanMobile,
+        age: numericAge,
+        requestedRole:
+          requestedRole as RequestedRole,
+      });
 
       /*
        * The application profile is now created.
@@ -429,7 +466,9 @@ export function SignupForm() {
               </strong>
 
               <span>
-                Staff registration
+                {trial
+                  ? "Free trial"
+                  : "Staff registration"}
               </span>
             </div>
           </div>
@@ -437,24 +476,36 @@ export function SignupForm() {
 
         <div className="auth-visual-content">
           <p className="auth-visual-kicker">
-            STAFF ONBOARDING
+            {trial
+              ? `${TRIAL_DAYS}-DAY FREE TRIAL`
+              : "STAFF ONBOARDING"}
           </p>
 
-          <h1>
-            Join the
-            <br />
-            operations team.
-          </h1>
+          {trial ? (
+            <h1>
+              Run your rental
+              <br />
+              business on it.
+            </h1>
+          ) : (
+            <h1>
+              Join the
+              <br />
+              operations team.
+            </h1>
+          )}
 
           <p>
-            Register securely, provide your
-            staff details, and request the
-            role that matches your work.
+            {trial
+              ? `Your own private workspace for ${TRIAL_DAYS} days, free. You are its administrator: invite your team, enter your fleet and run real bookings.`
+              : "Register securely, provide your staff details, and request the role that matches your work."}
           </p>
         </div>
 
         <div className="auth-visual-footer">
-          Secure staff onboarding
+          {trial
+            ? "No card needed to start"
+            : "Secure staff onboarding"}
         </div>
 
         <div className="auth-visual-circle auth-visual-circle-one" />
@@ -481,7 +532,9 @@ export function SignupForm() {
               </strong>
 
               <span>
-                Staff registration
+                {trial
+                  ? "Free trial"
+                  : "Staff registration"}
               </span>
             </div>
           </div>
@@ -501,17 +554,36 @@ export function SignupForm() {
           </button>
 
           <p className="auth-eyebrow">
-            CREATE ACCOUNT
+            {trial
+              ? "START YOUR TRIAL"
+              : "CREATE ACCOUNT"}
           </p>
 
           <h2>
-            Staff registration
+            {trial
+              ? `Start your ${TRIAL_DAYS}-day free trial`
+              : "Staff registration"}
           </h2>
 
           <p className="auth-form-intro">
-            Choose how you want to create
-            your staff account.
+            {trial
+              ? "One trial per email address. This account becomes the workspace administrator."
+              : "Choose how you want to create your staff account."}
           </p>
+
+          {!trial && workspaceId === null && (
+            <div className="auth-inline-error">
+              You need an invite link to join a team.
+              Ask your administrator to copy it from
+              the Staff screen and send it to you.
+              Starting your own company&apos;s
+              workspace instead?{" "}
+              <a href="/trial">
+                Start a free trial
+              </a>
+              .
+            </div>
+          )}
 
           {error && (
             <div className="auth-inline-error">
@@ -630,6 +702,25 @@ export function SignupForm() {
                   </label>
                 )}
 
+                {trial && (
+                  <label>
+                    Company name
+                    <input
+                      type="text"
+                      value={companyName}
+                      onChange={(event) =>
+                        setCompanyName(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Your rental business"
+                      autoComplete="organization"
+                      maxLength={80}
+                      required
+                    />
+                  </label>
+                )}
+
                 <label>
                   Full name
                   <input
@@ -692,6 +783,7 @@ export function SignupForm() {
                     />
                   </label>
 
+                  {!trial && (
                   <label>
                     Age
                     <input
@@ -711,8 +803,10 @@ export function SignupForm() {
                       required
                     />
                   </label>
+                  )}
                 </div>
 
+                {!trial && (
                 <label>
                   Requested role
                   <select
@@ -744,6 +838,7 @@ export function SignupForm() {
                     </option>
                   </select>
                 </label>
+                )}
 
                 <button
                   type="submit"
@@ -751,8 +846,12 @@ export function SignupForm() {
                   disabled={loading}
                 >
                   {loading
-                    ? "Creating account..."
-                    : "Create staff account"}
+                    ? trial
+                      ? "Creating your workspace..."
+                      : "Creating account..."
+                    : trial
+                      ? "Start free trial"
+                      : "Create staff account"}
 
                   <span aria-hidden="true">
                     →
@@ -761,8 +860,9 @@ export function SignupForm() {
               </form>
 
               <p className="auth-small-note">
-                New accounts require
-                administrator approval.
+                {trial
+                  ? `Free for ${TRIAL_DAYS} days. Continuing afterwards is a one-time licence — see the pricing on the welcome page.`
+                  : "New accounts require administrator approval."}
               </p>
             </>
           )}

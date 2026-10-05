@@ -1,6 +1,6 @@
 "use client";
 
-import { onSnapshot } from "firebase/firestore";
+import { onSnapshot } from "@/lib/data/firestore";
 
 import {
   useEffect,

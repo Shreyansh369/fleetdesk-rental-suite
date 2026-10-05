@@ -6,7 +6,7 @@ import {
   onSnapshot,
   orderBy,
   query,
-} from "firebase/firestore";
+} from "@/lib/data/firestore";
 
 import {
   CarFront,

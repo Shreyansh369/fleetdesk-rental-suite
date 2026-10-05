@@ -22,7 +22,8 @@
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
     "demo:seed": "tsx scripts/seed-demo.ts",
     "demo:hosted": "bash scripts/setup-demo-project.sh",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:rules && pnpm build"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:rules && pnpm build",
+    "licence": "tsx scripts/licence.ts"
   },
   "dependencies": {
     "firebase": "^12.17.0",

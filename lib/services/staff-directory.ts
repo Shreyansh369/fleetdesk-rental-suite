@@ -7,7 +7,7 @@ import {
   runTransaction,
   serverTimestamp,
   Timestamp,
-} from "firebase/firestore";
+} from "@/lib/data/firestore";
 
 import { getFirebaseClient } from "@/lib/firebase/client";
 

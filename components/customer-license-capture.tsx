@@ -20,6 +20,7 @@ import {
 } from "firebase/storage";
 
 import { getFirebaseClient } from "@/lib/firebase/client";
+import { isDirectMediaUrl } from "@/lib/demo/local-media";
 import { uploadCustomerDocument } from "@/lib/cloudinary";
 
 type Props = {
@@ -83,7 +84,7 @@ export function CustomerLicenseCapture({
       }
 
       if (
-        value.startsWith("https://")
+        isDirectMediaUrl(value)
       ) {
         setPreviewUrl(value);
         return;

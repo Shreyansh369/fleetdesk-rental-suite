@@ -7484,3 +7484,573 @@ canvas {
   font-size: 11px;
   font-weight: 800;
 }
+
+/* =========================================================
+   Licensing, trial and demo
+   ========================================================= */
+
+/* A status card on its own (no showcase beside it) is centred. */
+.auth-page:not(:has(.login-showcase)) {
+  grid-template-columns: 1fr;
+  padding: 32px 16px;
+}
+
+.auth-card > .button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.paywall-card {
+  width: min(100%, 520px);
+}
+
+.paywall-card .licence-terms {
+  margin: 22px 0 18px;
+}
+
+.paywall-action {
+  width: 100%;
+  min-height: 48px;
+}
+
+.paywall-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.paywall-secondary .button {
+  flex: 1 1 160px;
+}
+
+.licence-terms {
+  display: grid;
+  gap: 16px;
+}
+
+.licence-price {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.licence-price strong {
+  font-size: 40px;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.licence-price span {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.licence-terms.is-compact .licence-price strong {
+  font-size: 32px;
+}
+
+.licence-points {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.licence-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  line-height: 1.5;
+}
+
+.licence-points svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--green);
+}
+
+/* ---------- banner above every screen ---------- */
+
+.workspace-banner {
+  max-width: 1460px;
+  margin: -12px auto 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.workspace-banner.is-trial {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px 12px 10px 16px;
+  border-color: #cfdcff;
+  background: #f1f5ff;
+  color: #1f3c9e;
+}
+
+.workspace-banner.is-trial.is-urgent {
+  border-color: #f4d2b4;
+  background: #fff6ee;
+  color: #9a4b0c;
+}
+
+.workspace-banner.is-trial > span {
+  flex: 1 1 220px;
+}
+
+.workspace-banner-detail {
+  color: var(--muted);
+}
+
+.workspace-banner-action {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.workspace-banner.is-demo {
+  padding: 10px 12px 10px 16px;
+  border-color: #e3d7ff;
+  background: #f8f5ff;
+  color: #4b2a9a;
+}
+
+.demo-bar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.demo-bar-label {
+  display: flex;
+  flex: 1 1 240px;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.demo-bar-viewer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.demo-bar-viewer select {
+  max-width: 240px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.demo-bar-tools,
+.demo-bar-trial {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.demo-bar-hint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--blue);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.demo-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 12px;
+  color: var(--ink);
+}
+
+.demo-tools section {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.demo-tools h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.demo-tools p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.demo-staff-form {
+  display: grid;
+  gap: 8px;
+}
+
+.demo-staff-form input,
+.demo-staff-form select {
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.demo-tools-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.demo-bar-error {
+  margin: 8px 0 0;
+}
+
+/* ---------- staff invite ---------- */
+
+.team-invite {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding: 16px 18px;
+  border: 1px solid #cfdcff;
+  border-radius: var(--radius);
+  background: #f5f8ff;
+}
+
+.team-invite > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--blue);
+}
+
+.team-invite p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.team-invite-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.team-invite-link {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.team-invite-link input {
+  flex: 1 1 260px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+/* ---------- billing ---------- */
+
+.billing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.billing-card {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.billing-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.billing-card p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.billing-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 750;
+}
+
+.billing-state.is-paid {
+  background: #e6f6ee;
+  color: var(--green);
+}
+
+.billing-state.is-trial {
+  background: #e9efff;
+  color: var(--blue-dark);
+}
+
+.billing-state.is-expired {
+  background: #fdecee;
+  color: var(--red);
+}
+
+.billing-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.billing-facts div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.billing-facts dt {
+  color: var(--muted);
+}
+
+.billing-facts dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.billing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.billing-pay {
+  min-height: 48px;
+}
+
+.billing-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f1f5ff;
+  color: var(--blue-dark);
+}
+
+/* ---------- welcome ---------- */
+
+.welcome {
+  min-height: 100dvh;
+  padding: 0 16px 40px;
+  background:
+    radial-gradient(circle at 85% -10%, #dfe7ff 0, transparent 45%),
+    var(--subtle);
+}
+
+.welcome > * {
+  max-width: 1120px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.welcome-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 0;
+}
+
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+}
+
+.welcome-hero {
+  padding: clamp(32px, 8vw, 96px) 0 clamp(28px, 6vw, 64px);
+  text-align: center;
+}
+
+.welcome-hero h1 {
+  max-width: 760px;
+  margin: 12px auto 16px;
+  font-size: clamp(34px, 6vw, 60px);
+  letter-spacing: -0.05em;
+  line-height: 1.02;
+}
+
+.welcome-lede {
+  max-width: 620px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: clamp(15px, 2vw, 18px);
+  line-height: 1.6;
+}
+
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.welcome-cta {
+  min-height: 50px;
+  padding: 0 20px;
+  font-size: 15px;
+  white-space: normal;
+}
+
+.welcome-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.welcome-steps,
+.welcome-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.welcome-steps article,
+.welcome-features article {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.welcome-steps span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 800;
+}
+
+.welcome-steps h2,
+.welcome-features h3 {
+  margin: 12px 0 6px;
+  font-size: 17px;
+}
+
+.welcome-steps p,
+.welcome-features p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.welcome-features svg {
+  color: var(--blue);
+}
+
+.welcome-pricing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.welcome-pricing h2 {
+  margin: 10px 0;
+  font-size: clamp(26px, 4vw, 36px);
+  letter-spacing: -0.04em;
+}
+
+.welcome-pricing > div > p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.welcome-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.welcome-footer a {
+  margin-left: auto;
+  color: var(--blue);
+}
+
+@media (max-width: 560px) {
+  .workspace-banner {
+    margin-top: -6px;
+  }
+
+  .demo-bar-viewer {
+    flex: 1 1 100%;
+  }
+
+  .demo-bar-viewer select {
+    flex: 1;
+    max-width: none;
+  }
+
+  .demo-bar-tools,
+  .demo-bar-trial {
+    flex: 1 1 auto;
+  }
+
+  .team-invite {
+    flex-direction: column;
+  }
+}

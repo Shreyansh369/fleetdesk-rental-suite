@@ -8,7 +8,7 @@ import {
   orderBy,
   query,
   where,
-} from "firebase/firestore";
+} from "@/lib/data/firestore";
 
 import {
   CarFront,

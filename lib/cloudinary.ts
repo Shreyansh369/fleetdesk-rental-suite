@@ -1,3 +1,6 @@
+import { isDemoMode } from "@/lib/data/mode";
+import { storeDemoImage } from "@/lib/demo/local-media";
+
 export type CloudinaryMedia = {
   url: string;
   publicId: string;
@@ -83,10 +86,15 @@ export async function uploadVehicleMedia(
   file: File,
   stage: MediaStage,
 ): Promise<CloudinaryMedia> {
+  /* The demo keeps photographs on the device; see lib/demo/local-media.ts. */
+  const demo = isDemoMode();
+
   const {
     cloudName,
     uploadPreset,
-  } = cloudinaryConfig();
+  } = demo
+    ? { cloudName: "", uploadPreset: "" }
+    : cloudinaryConfig();
 
   if (!file.type.startsWith("image/")) {
     throw new Error(
@@ -101,6 +109,10 @@ export async function uploadVehicleMedia(
     throw new Error(
       "Each image must be 10 MB or smaller.",
     );
+  }
+
+  if (demo) {
+    return storeDemoImage(file);
   }
 
   const payload = new FormData();
@@ -210,10 +222,14 @@ export async function uploadCustomerDocument(
   file: File,
   customerId: string,
 ): Promise<CloudinaryMedia> {
+  const demo = isDemoMode();
+
   const {
     cloudName,
     uploadPreset,
-  } = cloudinaryConfig();
+  } = demo
+    ? { cloudName: "", uploadPreset: "" }
+    : cloudinaryConfig();
 
   if (
     !DOCUMENT_TYPES.test(file.type)
@@ -230,6 +246,10 @@ export async function uploadCustomerDocument(
     throw new Error(
       "Licence photo must be 5 MB or smaller.",
     );
+  }
+
+  if (demo) {
+    return storeDemoImage(file);
   }
 
   const payload = new FormData();

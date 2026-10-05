@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { getFirebaseClient } from "@/lib/firebase/client";
+import { isDirectMediaUrl } from "@/lib/demo/local-media";
 
 import type {
   RentalMediaItem,
@@ -157,7 +158,7 @@ export function LicenceImage({
   } | null>(null);
 
   const direct = Boolean(
-    storagePath?.startsWith("https://"),
+    isDirectMediaUrl(storagePath),
   );
 
   useEffect(() => {

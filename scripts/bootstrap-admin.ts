@@ -3,12 +3,14 @@ import { getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-const email = process.argv[2];
-const password = process.argv[3];
+const args = process.argv.slice(2).filter((value) => value !== "--");
+const email = args[0];
+const password = args[1];
+const workspaceId = args[2] ?? "local";
 
 if (!email || !password) {
   console.error(
-    "Usage: pnpm bootstrap:admin -- <email> <password>",
+    "Usage: pnpm bootstrap:admin -- <email> <password> [workspaceId]",
   );
   process.exit(1);
 }
@@ -46,13 +48,33 @@ try {
 }
 
 /*
- * Authorisation is read from users/{uid} by the security
- * rules, not from a custom claim, and the rules require
- * status: "approved" before any collection opens. A profile
- * without it belongs to an account that can sign in and do
- * nothing at all.
+ * Authorisation is read from workspaces/{id}/users/{uid} by the
+ * security rules, not from a custom claim, and the rules require
+ * status: "approved" before any collection opens. A local
+ * workspace is created paid, so development never runs into the
+ * end of a trial; accounts/{uid} is how the client finds it.
  */
-await db.collection("users").doc(user.uid).set(
+const workspaceRef = db.collection("workspaces").doc(workspaceId);
+
+if (!(await workspaceRef.get()).exists) {
+  await workspaceRef.set({
+    name: "Local Development",
+    ownerUid: user.uid,
+    adminEmail: email.toLowerCase(),
+    plan: "paid",
+    trialStartedAt: FieldValue.serverTimestamp(),
+    paidAt: FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+await db.collection("accounts").doc(user.uid).set({
+  workspaceId,
+  email: email.toLowerCase(),
+  createdAt: FieldValue.serverTimestamp(),
+});
+
+await workspaceRef.collection("users").doc(user.uid).set(
   {
     uid: user.uid,
     email,
@@ -69,4 +91,5 @@ console.log("");
 console.log("Local admin ready.");
 console.log(`Email: ${email}`);
 console.log(`UID: ${user.uid}`);
+console.log(`Workspace: ${workspaceId} (paid)`);
 console.log("Role: admin (approved)");

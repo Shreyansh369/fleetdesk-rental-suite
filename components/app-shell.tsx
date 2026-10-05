@@ -6,7 +6,7 @@ import {
   useRouter,
 } from "next/navigation";
 
-import { signOut } from "firebase/auth";
+import { signOut } from "@/lib/data/auth";
 
 import {
   collection,
@@ -14,12 +14,13 @@ import {
   onSnapshot,
   query,
   where,
-} from "firebase/firestore";
+} from "@/lib/data/firestore";
 
 import {
   BarChart3,
   CalendarDays,
   CarFront,
+  CreditCard,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -35,6 +36,10 @@ import {
 } from "react";
 
 import { useFirebaseAuth } from "./firebase-provider";
+import { WorkspaceBanner } from "./workspace-banner";
+
+import { getLocalBackend } from "@/lib/data/local-backend";
+import { reloadInto, setBackendMode } from "@/lib/data/mode";
 
 import { getFirebaseClient } from "@/lib/firebase/client";
 
@@ -88,6 +93,12 @@ const navigation = [
     admin: true,
     countsPendingStaff: true,
   },
+  {
+    href: "/billing",
+    label: "Billing",
+    icon: CreditCard,
+    admin: true,
+  },
 ];
 
 /*
@@ -113,6 +124,7 @@ export function AppShell({
     user,
     role,
     status,
+    mode,
   } = useFirebaseAuth();
 
   const router = useRouter();
@@ -354,6 +366,17 @@ export function AppShell({
 
     setLoggingOut(true);
 
+    /*
+     * The demo has nobody to sign out: leaving it goes back to
+     * the welcome page, and the data stays for next time.
+     */
+    if (mode === "demo") {
+      await getLocalBackend().db.flush();
+      setBackendMode(null);
+      reloadInto("/welcome");
+      return;
+    }
+
     try {
       await signOut(
         getFirebaseClient().auth,
@@ -512,8 +535,16 @@ export function AppShell({
               void logout()
             }
             disabled={loggingOut}
-            aria-label="Sign out"
-            title="Sign out"
+            aria-label={
+              mode === "demo"
+                ? "Exit demo"
+                : "Sign out"
+            }
+            title={
+              mode === "demo"
+                ? "Exit demo"
+                : "Sign out"
+            }
           >
             <LogOut
               size={18}
@@ -576,6 +607,8 @@ export function AppShell({
             </div>
           )}
         </header>
+
+        <WorkspaceBanner />
 
         {children}
       </main>

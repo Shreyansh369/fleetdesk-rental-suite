@@ -11,6 +11,10 @@ import {
   uploadCustomerDocument,
   uploadVehicleMedia,
 } from "../../lib/cloudinary";
+import { forceBackendMode } from "../../lib/data/mode";
+
+/* The live workspace uploads; the demo keeps images on the device. */
+forceBackendMode("live");
 
 /*
  * The upload runs straight from the browser against

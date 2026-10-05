@@ -3,12 +3,15 @@
 import {
   doc,
   onSnapshot,
-} from "firebase/firestore";
+  setWorkspaceScope,
+  Timestamp,
+  type DocumentData,
+} from "@/lib/data/firestore";
 
 import {
   onAuthStateChanged,
   type User,
-} from "firebase/auth";
+} from "@/lib/data/auth";
 
 import {
   createContext,
@@ -20,31 +23,51 @@ import {
 
 import { firebaseEnvironment } from "@/lib/firebase/config";
 import { getFirebaseClient } from "@/lib/firebase/client";
+import {
+  backendMode,
+  liveBackendAvailable,
+  type BackendMode,
+} from "@/lib/data/mode";
+import type { WorkspaceRecord } from "@/lib/license";
 
 export type AppRole =
   | "admin"
   | "operations"
   | null;
 
+type Shared = {
+  mode: BackendMode;
+  /* The live workspace the account belongs to; null in the demo. */
+  workspace: WorkspaceRecord | null;
+  /* Signed in, but not a member of any workspace yet. */
+  noWorkspace: boolean;
+};
+
 type AuthState =
-  | {
+  | ({
       status: "config-error";
       user: null;
       role: null;
       message: string;
-    }
-  | {
+    } & Shared)
+  | ({
       status: "loading";
       user: User | null;
       role: null;
       message: string | null;
-    }
-  | {
+    } & Shared)
+  | ({
       status: "ready";
       user: User | null;
       role: AppRole;
       message: string | null;
-    };
+    } & Shared);
+
+const EMPTY: Shared = {
+  mode: "live",
+  workspace: null,
+  noWorkspace: false,
+};
 
 const FirebaseContext =
   createContext<AuthState>({
@@ -52,7 +75,81 @@ const FirebaseContext =
     user: null,
     role: null,
     message: null,
+    ...EMPTY,
   });
+
+function toDate(value: unknown): Date | null {
+  return value instanceof Timestamp
+    ? value.toDate()
+    : null;
+}
+
+function workspaceFrom(
+  id: string,
+  data: DocumentData,
+): WorkspaceRecord {
+  return {
+    id,
+    name: String(data.name ?? ""),
+    ownerUid: String(data.ownerUid ?? ""),
+    adminEmail: String(data.adminEmail ?? ""),
+    plan: String(data.plan ?? ""),
+    trialStartedAt: toDate(data.trialStartedAt),
+    paidAt: toDate(data.paidAt),
+    paymentSubmittedAt: toDate(
+      data.paymentSubmittedAt,
+    ),
+  };
+}
+
+/*
+ * Turns a staff profile into an access decision. The messages
+ * are what the "access pending" screen shows, so they explain
+ * the state rather than name it.
+ */
+function decide(
+  profile: DocumentData | undefined,
+): Pick<AuthState, "role" | "message"> & {
+  role: AppRole;
+} {
+  if (!profile) {
+    return {
+      role: null,
+      message:
+        "You are signed in, but no staff profile exists for this account yet.",
+    };
+  }
+
+  const role: AppRole =
+    profile.role === "admin" ||
+    profile.role === "operations"
+      ? profile.role
+      : null;
+
+  const status = String(
+    profile.status ?? "",
+  ).toLowerCase();
+
+  if (status !== "approved") {
+    return {
+      role: null,
+      message:
+        status === "pending"
+          ? "Your staff account is awaiting administrator approval."
+          : "Your staff account is not approved for application access.",
+    };
+  }
+
+  if (!role) {
+    return {
+      role: null,
+      message:
+        "Your account has been approved, but no valid application role has been assigned.",
+    };
+  }
+
+  return { role, message: null };
+}
 
 export function FirebaseProvider({
   children,
@@ -60,302 +157,280 @@ export function FirebaseProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] =
-    useState<AuthState>(() => {
-      if (!firebaseEnvironment()) {
-        return {
-          status: "config-error",
-          user: null,
-          role: null,
-          message:
-            "Firebase configuration is missing. Check the environment variables.",
-        };
-      }
-
-      return {
-        status: "loading",
-        user: null,
-        role: null,
-        message: null,
-      };
+    useState<AuthState>({
+      status: "loading",
+      user: null,
+      role: null,
+      message: null,
+      ...EMPTY,
     });
 
   useEffect(() => {
-    if (!firebaseEnvironment()) {
-      return;
-    }
+    const mode = backendMode();
 
     let cancelled = false;
 
-    let unsubscribeProfile:
-      | (() => void)
-      | undefined;
-
-    let firebaseClient:
-      | ReturnType<
-          typeof getFirebaseClient
-        >
-      | undefined;
-
-    let initializationError:
-      | string
-      | undefined;
-
-    try {
-      firebaseClient =
-        getFirebaseClient();
-    } catch (error) {
-      initializationError =
-        error instanceof Error
-          ? error.message
-          : "Firebase could not initialize.";
-    }
-
     /*
-     * A failed initialization is reported from a task of its
+     * A configuration problem is reported from a task of its
      * own so the provider never re-renders synchronously from
      * inside this effect.
      */
-    if (!firebaseClient) {
+    const fail = (message: string) =>
       queueMicrotask(() => {
-        if (cancelled) {
-          return;
+        if (!cancelled) {
+          setState({
+            status: "config-error",
+            user: null,
+            role: null,
+            message,
+            ...EMPTY,
+            mode,
+          });
         }
-
-        setState({
-          status: "config-error",
-          user: null,
-          role: null,
-          message:
-            initializationError ??
-            "Firebase could not initialize.",
-        });
       });
+
+    if (
+      mode === "live" &&
+      (!liveBackendAvailable() ||
+        !firebaseEnvironment())
+    ) {
+      fail(
+        "Firebase configuration is missing. Check the environment variables.",
+      );
 
       return () => {
         cancelled = true;
       };
     }
 
-    const {
-      auth,
-      db,
-    } = firebaseClient;
+    let firebaseClient:
+      | ReturnType<typeof getFirebaseClient>
+      | undefined;
 
-    const unsubscribeAuth =
-      onAuthStateChanged(
-        auth,
-        (user) => {
-          /*
-           * Always dispose of the previous
-           * staff-profile listener before
-           * handling the new authentication state.
-           */
-          unsubscribeProfile?.();
-          unsubscribeProfile =
-            undefined;
+    try {
+      firebaseClient = getFirebaseClient();
+    } catch (error) {
+      fail(
+        error instanceof Error
+          ? error.message
+          : "Firebase could not initialize.",
+      );
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const { auth, db } = firebaseClient;
+
+    /* Every listener opened for the current user. */
+    let detach: Array<() => void> = [];
+
+    const closeListeners = () => {
+      for (const unsubscribe of detach) {
+        unsubscribe();
+      }
+
+      detach = [];
+    };
+
+    const unsubscribeAuth = onAuthStateChanged(
+      auth,
+      (user) => {
+        closeListeners();
+        setWorkspaceScope(null);
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!user) {
+          setState({
+            status: "ready",
+            user: null,
+            role: null,
+            message: null,
+            ...EMPTY,
+            mode,
+          });
+
+          return;
+        }
+
+        setState({
+          status: "loading",
+          user,
+          role: null,
+          message: "Checking your staff profile…",
+          ...EMPTY,
+          mode,
+        });
+
+        const profileError = (error: Error) => {
+          console.error(
+            "Staff profile listener failed:",
+            error,
+          );
 
           if (cancelled) {
             return;
           }
 
-          /*
-           * ---------------------------------------------------
-           * SIGNED OUT
-           * ---------------------------------------------------
-           */
-          if (!user) {
-            setState({
-              status: "ready",
-              user: null,
-              role: null,
-              message: null,
-            });
-
-            return;
-          }
-
-          /*
-           * ---------------------------------------------------
-           * AUTHENTICATED USER
-           * ---------------------------------------------------
-           *
-           * Authentication is complete.
-           *
-           * Authorization is resolved from:
-           *
-           * users/{uid}
-           *
-           * We retain the authenticated Firebase user while
-           * the Firestore profile is being resolved.
-           */
-          setState({
-            status: "loading",
+          setState((previous) => ({
+            status: "ready",
             user,
             role: null,
-            message:
-              "Checking your staff profile…",
-          });
+            message: `We could not verify your staff profile: ${error.message}`,
+            mode,
+            workspace: previous.workspace,
+            noWorkspace: false,
+          }));
+        };
 
-          const profileRef =
-            doc(
-              db,
-              "users",
-              user.uid,
-            );
-
-          /*
-           * Realtime profile listener.
-           *
-           * This is important because:
-           *
-           * 1. Google Auth can complete before signup writes
-           *    users/{uid}.
-           *
-           * 2. Admin approval can happen later.
-           *
-           * 3. Role changes should appear without forcing
-           *    the user to sign out and back in.
-           */
-          unsubscribeProfile =
+        /*
+         * The demo has one workspace — this device — so the
+         * profile is all there is to resolve.
+         */
+        if (mode === "demo") {
+          detach.push(
             onSnapshot(
-              profileRef,
+              doc(db, "users", user.uid),
               (snapshot) => {
-                if (cancelled) {
-                  return;
-                }
+                if (cancelled) return;
 
-                /*
-                 * -------------------------------------------------
-                 * PROFILE DOES NOT EXIST
-                 * -------------------------------------------------
-                 *
-                 * This is different from "pending".
-                 *
-                 * No document means this Google account has
-                 * authenticated successfully but has not yet
-                 * completed staff registration.
-                 */
-                if (!snapshot.exists()) {
-                  setState({
-                    status: "ready",
-                    user,
-                    role: null,
-                    message:
-                      "Your Google account is authenticated, but no staff profile exists for this account yet.",
-                  });
-
-                  return;
-                }
-
-                const profile =
-                  snapshot.data();
-
-                const role: AppRole =
-                  profile.role === "admin" ||
-                  profile.role ===
-                    "operations"
-                    ? profile.role
-                    : null;
-
-                const status =
-                  String(
-                    profile.status ??
-                      "",
-                  ).toLowerCase();
-
-                /*
-                 * -------------------------------------------------
-                 * ACCOUNT NOT APPROVED
-                 * -------------------------------------------------
-                 */
-                if (
-                  status !== "approved"
-                ) {
-                  if (
-                    status === "pending"
-                  ) {
-                    setState({
-                      status: "ready",
-                      user,
-                      role: null,
-                      message:
-                        "Your staff account is awaiting administrator approval.",
-                    });
-
-                    return;
-                  }
-
-                  setState({
-                    status: "ready",
-                    user,
-                    role: null,
-                    message:
-                      "Your staff account is not approved for application access.",
-                  });
-
-                  return;
-                }
-
-                /*
-                 * -------------------------------------------------
-                 * APPROVED BUT INVALID ROLE
-                 * -------------------------------------------------
-                 */
-                if (!role) {
-                  setState({
-                    status: "ready",
-                    user,
-                    role: null,
-                    message:
-                      "Your account has been approved, but no valid application role has been assigned.",
-                  });
-
-                  return;
-                }
-
-                /*
-                 * -------------------------------------------------
-                 * FULLY AUTHORIZED
-                 * -------------------------------------------------
-                 */
                 setState({
                   status: "ready",
                   user,
-                  role,
-                  message: null,
+                  ...decide(snapshot.data()),
+                  ...EMPTY,
+                  mode,
                 });
               },
-              (error) => {
-                console.error(
-                  "Firebase staff profile listener failed:",
-                  error,
-                );
+              profileError,
+            ),
+          );
 
-                if (cancelled) {
-                  return;
-                }
+          return;
+        }
+
+        /*
+         * Live: accounts/{uid} names the workspace, and only
+         * then can the workspace and the staff profile inside it
+         * be read. Each is a live listener, so an approval, a
+         * role change, or a payment being confirmed shows up
+         * without signing in again.
+         */
+        let workspaceListeners: Array<() => void> = [];
+
+        const closeWorkspace = () => {
+          for (const unsubscribe of workspaceListeners) {
+            unsubscribe();
+          }
+
+          workspaceListeners = [];
+        };
+
+        detach.push(closeWorkspace);
+
+        let openWorkspaceId: string | null = null;
+
+        detach.push(
+          onSnapshot(
+            doc(db, "accounts", user.uid),
+            (account) => {
+              if (cancelled) return;
+
+              const workspaceId = account.exists()
+                ? String(account.get("workspaceId") ?? "")
+                : "";
+
+              if (!workspaceId) {
+                closeWorkspace();
+                openWorkspaceId = null;
+                setWorkspaceScope(null);
 
                 setState({
                   status: "ready",
                   user,
                   role: null,
                   message:
-                    error instanceof Error
-                      ? `We could not verify your staff profile: ${error.message}`
-                      : "We could not verify your staff profile. Please try again.",
+                    "This account is not part of a FleetDesk workspace yet. Start a free trial, or ask your administrator for the invite link.",
+                  mode,
+                  workspace: null,
+                  noWorkspace: true,
                 });
-              },
-            );
-        },
-      );
+
+                return;
+              }
+
+              if (workspaceId === openWorkspaceId) {
+                return;
+              }
+
+              closeWorkspace();
+              openWorkspaceId = workspaceId;
+              setWorkspaceScope(workspaceId);
+
+              let workspace: WorkspaceRecord | null = null;
+              let profile: DocumentData | undefined;
+              let haveWorkspace = false;
+              let haveProfile = false;
+
+              const publish = () => {
+                if (
+                  cancelled ||
+                  !haveWorkspace ||
+                  !haveProfile
+                ) {
+                  return;
+                }
+
+                setState({
+                  status: "ready",
+                  user,
+                  ...decide(profile),
+                  mode,
+                  workspace,
+                  noWorkspace: false,
+                });
+              };
+
+              workspaceListeners.push(
+                onSnapshot(
+                  doc(db, "workspaces", workspaceId),
+                  (snapshot) => {
+                    workspace = snapshot.exists()
+                      ? workspaceFrom(
+                          snapshot.id,
+                          snapshot.data(),
+                        )
+                      : null;
+                    haveWorkspace = true;
+                    publish();
+                  },
+                  profileError,
+                ),
+
+                onSnapshot(
+                  doc(db, "users", user.uid),
+                  (snapshot) => {
+                    profile = snapshot.data();
+                    haveProfile = true;
+                    publish();
+                  },
+                  profileError,
+                ),
+              );
+            },
+            profileError,
+          ),
+        );
+      },
+    );
 
     return () => {
       cancelled = true;
-
-      unsubscribeProfile?.();
-      unsubscribeProfile =
-        undefined;
-
+      closeListeners();
       unsubscribeAuth();
     };
   }, []);

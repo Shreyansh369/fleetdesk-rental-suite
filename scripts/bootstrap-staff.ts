@@ -23,10 +23,12 @@ async function main(): Promise<void> {
   const create = process.argv.includes("--create");
   const apply = process.argv.includes("--apply");
   const confirmation = readArgument("--confirm");
+  const workspaceId = readArgument("--workspace")?.trim();
+  if (!workspaceId) throw new Error("Name the workspace with --workspace <id> (pnpm licence list --all shows them).");
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Provide a valid --email address.");
   if (role !== "admin" && role !== "operations") throw new Error("--role must be admin or operations.");
   if (confirmation !== email) throw new Error("Repeat the exact email in --confirm=<email> to prevent an accidental role assignment.");
-  if (!apply) { console.log(JSON.stringify({ dryRun: true, email, role, create, message: "No user or role was changed. Rerun with --apply after confirming the target Firebase project." }, null, 2)); return; }
+  if (!apply) { console.log(JSON.stringify({ dryRun: true, email, role, create, workspaceId, message: "No user or role was changed. Rerun with --apply after confirming the target Firebase project." }, null, 2)); return; }
   if (!getApps().length) initializeApp();
   const auth = getAuth();
   let user: UserRecord;
@@ -39,12 +41,18 @@ async function main(): Promise<void> {
     user = await auth.createUser({ email, password });
   }
   const db = getFirestore();
+  const workspace = db.collection("workspaces").doc(workspaceId);
+  if (!(await workspace.get()).exists) throw new Error(`Workspace ${workspaceId} does not exist.`);
+  const account = await db.collection("accounts").doc(user.uid).get();
+  if (account.exists && account.get("workspaceId") !== workspaceId) throw new Error(`${email} already belongs to workspace ${account.get("workspaceId")}.`);
   // The security rules read the role and the approval from this
   // document, not from a custom claim. Without status: "approved"
-  // the account is denied every collection.
-  await db.collection("users").doc(user.uid).set({ email: user.email ?? email, role, status: "approved", requestedRole: role, updatedAt: FieldValue.serverTimestamp(), updatedBy: "bootstrap-script", createdAt: FieldValue.serverTimestamp() }, { merge: true });
-  await db.collection("auditLogs").add({ actorUid: "bootstrap-script", action: "user.role_bootstrapped", target: { collection: "users", id: user.uid }, metadata: { email, role, created: create }, occurredAt: FieldValue.serverTimestamp() });
-  console.log(JSON.stringify({ applied: true, uid: user.uid, email, role, created: create }, null, 2));
+  // the account is denied every collection; without accounts/{uid}
+  // the client cannot find the workspace at all.
+  await db.collection("accounts").doc(user.uid).set({ workspaceId, email, createdAt: FieldValue.serverTimestamp() }, { merge: true });
+  await workspace.collection("users").doc(user.uid).set({ email: user.email ?? email, role, status: "approved", requestedRole: role, updatedAt: FieldValue.serverTimestamp(), updatedBy: "bootstrap-script", createdAt: FieldValue.serverTimestamp() }, { merge: true });
+  await workspace.collection("auditLogs").add({ actorUid: "bootstrap-script", action: "user.role_bootstrapped", target: { collection: "users", id: user.uid }, metadata: { email, role, created: create }, occurredAt: FieldValue.serverTimestamp() });
+  console.log(JSON.stringify({ applied: true, uid: user.uid, email, role, workspaceId, created: create }, null, 2));
 }
 
 main().catch((error) => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; });

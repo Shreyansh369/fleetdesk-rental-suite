@@ -410,7 +410,9 @@ export function LoginForm() {
           />
 
           <p className="auth-eyebrow">
-            {registrationRequired
+            {auth.noWorkspace
+              ? "NO WORKSPACE"
+              : registrationRequired
               ? "REGISTRATION"
               : pendingApproval
                 ? "ACCESS PENDING"
@@ -418,7 +420,9 @@ export function LoginForm() {
           </p>
 
           <h1>
-            {registrationRequired
+            {auth.noWorkspace
+              ? "This account is not in a workspace yet"
+              : registrationRequired
               ? "Complete your staff registration"
               : pendingApproval
                 ? "Account awaiting approval"
@@ -445,6 +449,24 @@ export function LoginForm() {
             >
               {error}
             </div>
+          )}
+
+          {auth.noWorkspace && (
+            <button
+              type="button"
+              className="auth-primary-small"
+              onClick={() =>
+                router.push("/trial")
+              }
+            >
+              <span>
+                Start a free trial
+              </span>
+
+              <span aria-hidden="true">
+                →
+              </span>
+            </button>
           )}
 
           {registrationRequired && (
@@ -719,7 +741,7 @@ export function LoginForm() {
           <div className="auth-divider auth-divider-small">
             <span />
             <small>
-              NEW STAFF
+              NEW TO FLEETDESK
             </small>
             <span />
           </div>
@@ -728,15 +750,18 @@ export function LoginForm() {
             type="button"
             className="auth-secondary-button"
             onClick={() =>
-              router.push("/signup")
+              router.push("/trial")
             }
           >
-            Create staff account
+            Start a 7-day free trial
           </button>
 
           <p className="auth-small-note">
-            Access is subject to
-            administrator approval.
+            Joining your team? Open the invite
+            link your administrator sent you.{" "}
+            <a href="/welcome">
+              Or try the demo first.
+            </a>
           </p>
         </div>
       </section>

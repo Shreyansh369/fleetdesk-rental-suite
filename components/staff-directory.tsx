@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import { AppShell } from "./app-shell";
+import { TeamInvite } from "./team-invite";
 
 import { useFirebaseAuth } from "./firebase-provider";
 
@@ -461,6 +462,8 @@ export function StaffDirectory() {
           {notice}
         </div>
       )}
+
+      <TeamInvite />
 
       {pending.length > 0 && (
         <section className="staff-queue">

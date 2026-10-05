@@ -7,7 +7,7 @@ import {
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
-} from "firebase/firestore";
+} from "@/lib/data/firestore";
 
 import { getFirebaseClient } from "@/lib/firebase/client";
 

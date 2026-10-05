@@ -8,7 +8,7 @@ import {
   limit,
   orderBy,
   query,
-} from "firebase/firestore";
+} from "@/lib/data/firestore";
 
 import {
   BarChart3,

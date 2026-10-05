@@ -13,7 +13,7 @@ import {
   startAfter,
   Timestamp,
   where,
-} from "firebase/firestore";
+} from "@/lib/data/firestore";
 
 import { getFirebaseClient } from "@/lib/firebase/client";
 import {
