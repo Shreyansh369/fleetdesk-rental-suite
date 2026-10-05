@@ -1,24 +1,22 @@
 "use client";
 
 import {
-  CreditCard,
   Hourglass,
   LogOut,
   Mail,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { signOut } from "@/lib/data/auth";
 import { reloadInto } from "@/lib/data/mode";
 import { getFirebaseClient } from "@/lib/firebase/client";
 import {
-  LICENCE_PRICE_CENTS,
-  formatUsd,
   salesEmail,
-  stripeCheckoutUrl,
   type WorkspaceRecord,
 } from "@/lib/license";
 
-import { LicenceTerms } from "./licence-terms";
+import { LegalFooter } from "./legal-footer";
+import { PricingPlans } from "./pricing-plans";
+import { useCheckout } from "./use-checkout";
 
 /*
  * What a workspace shows once its trial has run out and it has
@@ -35,8 +33,8 @@ export function LicencePaywall({
   isAdmin: boolean;
   paymentSubmitted: boolean;
 }) {
-  const checkout = stripeCheckoutUrl(workspace);
   const sales = salesEmail();
+  const checkout = useCheckout(workspace);
 
   async function leave() {
     try {
@@ -47,91 +45,94 @@ export function LicencePaywall({
   }
 
   return (
-    <main className="auth-page">
-      <section className="auth-card paywall-card">
-        <div className="auth-symbol">
-          <Hourglass />
-        </div>
+    <div className="entry">
+      <header className="entry-bar">
+        <span className="entry-brand">
+          <img
+            src="/icon.svg"
+            alt=""
+            width={28}
+            height={28}
+          />
+          <span>FleetDesk</span>
+        </span>
 
-        <p className="page-kicker">
-          {workspace.name || "Your workspace"}
-        </p>
+        <button
+          type="button"
+          className="button button-secondary compact"
+          onClick={() => void leave()}
+        >
+          <LogOut size={16} />
+          Sign out
+        </button>
+      </header>
 
-        <h1>Your free trial has ended</h1>
+      <main className="paywall">
+        <section className="paywall-head">
+          <p className="eyebrow">
+            <Hourglass size={16} />
+            {workspace.name || "Your workspace"}
+          </p>
 
-        {paymentSubmitted ? (
-          <p>
-            Thank you — we have your payment and are
-            activating the licence. This page opens by
-            itself as soon as it is done; there is no
-            need to sign in again.
-          </p>
-        ) : isAdmin ? (
-          <p>
-            Everything your team entered is kept. Buy
-            the licence to carry on exactly where you
-            left off.
-          </p>
-        ) : (
-          <p>
-            Everything your team entered is kept. Ask
-            your administrator
-            {workspace.adminEmail
-              ? ` (${workspace.adminEmail})`
-              : ""}{" "}
-            to buy the licence, and this workspace
-            opens again for everyone.
-          </p>
-        )}
+          <h1>Your free trial has ended</h1>
+
+          {paymentSubmitted ? (
+            <p>
+              Thank you. Stripe has your payment and the
+              licence is being switched on. This page opens
+              the workspace by itself as soon as it is done;
+              there is no need to sign in again.
+            </p>
+          ) : isAdmin ? (
+            <p>
+              Everything your team entered is kept. Choose a
+              plan to carry on exactly where you left off.
+              Payment is taken securely by Stripe.
+            </p>
+          ) : (
+            <p>
+              Everything your team entered is kept. Ask your
+              administrator
+              {workspace.adminEmail
+                ? ` (${workspace.adminEmail})`
+                : ""}{" "}
+              to choose a plan, and the workspace opens again
+              for everyone.
+            </p>
+          )}
+        </section>
 
         {isAdmin && !paymentSubmitted && (
           <>
-            <LicenceTerms compact />
-
-            {checkout ? (
-              <a
-                className="button button-primary paywall-action"
-                href={checkout}
-              >
-                <CreditCard size={18} />
-                Pay {formatUsd(LICENCE_PRICE_CENTS)} with
-                Stripe
-              </a>
-            ) : (
-              <p className="form-error">
-                Online payment is not set up for this
-                site yet.
-                {sales
-                  ? ` Email ${sales} and we will send you a payment link.`
-                  : ""}
+            {checkout.error && (
+              <p className="notice is-error" role="alert">
+                {checkout.error}
               </p>
             )}
+
+            <PricingPlans
+              onChoose={(plan) => void checkout.choose(plan)}
+              busyPlan={checkout.busyPlan}
+            />
           </>
         )}
 
-        <div className="paywall-secondary">
-          {sales && (
+        {sales && (
+          <p className="paywall-contact">
+            Questions about a plan?{" "}
             <a
-              className="button button-secondary"
               href={`mailto:${sales}?subject=${encodeURIComponent(
-                `FleetDesk licence — ${workspace.name || workspace.id}`,
+                `FleetDesk plans: ${workspace.name || workspace.id}`,
               )}`}
             >
-              <Mail size={17} />
-              Contact us
+              <Mail size={15} />
+              {sales}
             </a>
-          )}
+          </p>
+        )}
+      </main>
 
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={() => void leave()}
-          >
-            <LogOut size={17} />
-            Sign out
-          </button>
-        </div>
-      </section>
-    </main>
+      <LegalFooter />
+    </div>
   );
 }

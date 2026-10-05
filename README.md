@@ -1,6 +1,24 @@
 # FleetDesk
 
-Secure, white-label operations software for car rental businesses: bookings, checkout and return, rental agreements, damage records, payments, expenses, finance and staff access in one place. Company name, logo and agreement terms are placeholders to be replaced per operator.
+Operations software for car rental businesses: bookings, checkout and return, rental agreements, damage records, payments, expenses, finance and staff access in one place.
+
+## How it is offered
+
+1. **Demo, in the browser.** Any build opens on a welcome page with pricing. *Open the demo* signs the visitor in to a complete workspace that runs entirely in their browser: every workflow works, data is kept on the device (IndexedDB), and nothing needs Firebase or any server. The demo accounts are published on the sign-in page; all use the password `Demo@1234`:
+
+   | Account | Role |
+   | --- | --- |
+   | `demo.admin@gmail.com`, `demo.manager@gmail.com` | Administrator |
+   | `demo.frontdesk@gmail.com`, `demo.fleet@gmail.com`, `demo.accounts@gmail.com`, `demo.hr@gmail.com` | Operations |
+   | `demo.newhire@gmail.com` | Waiting for approval |
+
+   The demo starts with no business data, for the visitor's own vehicles and rates; *Demo tools* loads a sample business (14 vehicles, 18 customers, six months of history and today's activity) through the same workflows.
+2. **7-day free trial.** With Firebase configured, a visitor starts a trial at `/trial` with one administrator email (one trial per email, no card). It is a private workspace in the shared Firebase project; the administrator invites staff with a link from the Staff screen and approves them.
+3. **A paid plan**, through Stripe: *Subscription* ($599, then $99/month from month 3) or *Buy outright* ($1,299 for the first year, maintenance for 3 months, $99/month from month 13). Hosting and the database are included. See [`docs/billing.md`](docs/billing.md).
+
+The public site carries terms of service, privacy, cookie, refund and acceptable-use pages (`/terms`, `/privacy`, `/cookies`, `/refunds`, `/acceptable-use`), filled from `NEXT_PUBLIC_LEGAL_*`. They are written for how the product works but are not legal advice; have them reviewed before taking payment.
+
+The interface is responsive from small Android phones to 4K TVs (large screens are scaled up for reading at a distance), respects iPhone safe areas, and can be installed from the browser as an app on any device.
 
 ## Included
 
@@ -27,52 +45,21 @@ Secure, white-label operations software for car rental businesses: bookings, che
 
 ## Start locally
 
-1. Copy `.env.example` to `.env.local` and fill in a **development** Firebase project configuration.
-2. Install dependencies with `pnpm install`.
-3. Run `pnpm exec firebase login`, then replace the staging/production aliases in `.firebaserc`. The default `demo-fleetdesk` alias is emulator-only and cannot deploy a real project.
-4. Start local services: `pnpm exec firebase emulators:start`.
-5. In another terminal run `pnpm dev` and open `http://localhost:3000`.
+The demo needs nothing but the app:
 
-The application refuses to initialise Firebase until all public configuration values are present. Set `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` for local work.
-
-## Demo data
-
-To show the application to a prospective operator, fill the local emulators with fictional data — every name, number, address and vehicle is invented:
-
-```powershell
-pnpm exec firebase emulators:start --only auth,firestore,storage --project demo-fleetdesk
-# in a second terminal
-pnpm demo:seed
-pnpm dev
+```bash
+pnpm install
+pnpm dev        # http://localhost:3000, no .env.local needed
 ```
 
-For `pnpm dev`, `.env.local` needs `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-fleetdesk`, and any non-empty placeholder for the other `NEXT_PUBLIC_FIREBASE_*` values.
+For trials and workspaces against the emulators:
 
-The seed signs in as each staff member and runs the same workflows the screens use, so it produces:
+1. Copy `.env.example` to `.env.local` with `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true`, `NEXT_PUBLIC_FIREBASE_PROJECT_ID=demo-fleetdesk` and any non-empty placeholder for the other `NEXT_PUBLIC_FIREBASE_*` values.
+2. `pnpm exec firebase emulators:start --only auth,firestore,storage --project demo-fleetdesk`
+3. In another terminal, `pnpm demo:seed` fills a paid workspace (`demo`) with the sample business, with sign-ins for the demo accounts above; or `pnpm bootstrap:admin -- you@example.com <password>` creates an empty one.
+4. `pnpm dev`, then sign in from the welcome page.
 
-- 14 vehicles, one due for service, one in the workshop and one with insurance about to expire
-- 18 customers, and about six months of finished rentals and running costs, so Finance has history to report on
-- Bookings coming up, vehicles out on hire, one overdue, one returned today with fuel and cleaning to settle, and payments taken
-- Two cancelled bookings with their reasons, a discount waiting for approval, one approved agreement and one waiting for review
-- A staff sign-up waiting on the **Staff** screen
-
-Sign in with any of these accounts; the password for all of them is `DemoPass123!`:
-
-| Account | Role |
-| --- | --- |
-| `admin@demo.fleetdesk.app` | Administrator |
-| `maria@demo.fleetdesk.app`, `james@demo.fleetdesk.app`, `priya@demo.fleetdesk.app` | Operations |
-| `tom@demo.fleetdesk.app` | Waiting for approval |
-
-The emulators start empty each time, so run `pnpm demo:seed` again after restarting them; it refuses to run on data that is already there.
-
-### A hosted demo to share
-
-`pnpm demo:hosted` creates a new Firebase project on the free Spark plan, turns on email sign-in, creates Firestore and deploys its rules, publishes the app to Firebase Hosting, and loads the same demo data. It prints the link when it finishes (`https://<project>.web.app`).
-
-It needs the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install), Node 22+ and pnpm, and opens a browser to sign in to Google. On Windows, run it from Git Bash. Pass a project id to choose one (`pnpm demo:hosted -- my-demo-id`); otherwise one is generated. It only ever creates a new project, and the seed refuses a project that already has vehicles, so neither can be pointed at an operator's live data.
-
-Anyone with the link can sign in with the demo accounts and change the data, so share it only with the people you are presenting to.
+`pnpm demo:hosted` still creates a separate hosted Firebase demo project; with the in-browser demo it is rarely needed.
 
 ## Inventory import
 
@@ -80,7 +67,7 @@ A sample workbook with fictional vehicles is in `samples/sample-inventory.xlsx`;
 
 ```powershell
 pnpm import:inventory -- --file "./samples/sample-inventory.xlsx"
-pnpm import:inventory -- --file "./samples/sample-inventory.xlsx" --commit
+pnpm import:inventory -- --file "./samples/sample-inventory.xlsx" --commit --workspace <workspaceId>
 ```
 
 The first command is dry-run. `--commit` is required to write, and each run creates a timestamped report under `reports/`. See `docs/migration.md` before importing production data.
@@ -95,15 +82,15 @@ pnpm test:rules
 pnpm verify
 ```
 
-## Staff access
+## Workspaces, staff and licences
 
-A new account registers itself and is stored with `status: "pending"`. It can sign in, and it reaches nothing: the security rules read `role` and `status` from `users/{uid}`. An administrator approves it and assigns the role on the **Staff** screen, and the account opens as soon as it does — no second sign-in needed.
+Every operator's data lives under `workspaces/{workspaceId}/` in one Firebase project; `accounts/{uid}` says which workspace an account belongs to. The application code addresses plain collection names and `lib/data/firestore.ts` places them in the signed-in account's workspace (or in the in-browser demo store).
 
-Two things have to be true before anyone can register at all:
+- Starting a trial creates the workspace, the administrator's approved profile, their account entry and a claim on their email in one write; the rules allow nothing else to create an approved profile.
+- Staff register from the administrator's invite link (`/signup?workspace=…`) and wait, `status: "pending"`, until an administrator approves them with a role on the **Staff** screen.
+- When a trial ends, the rules stop serving the workspace's data until it is paid. Members still see who to ask, and the administrator sees the plans.
+- Email/Password and Google sign-in must be enabled in Firebase Authentication for trials and staff registration.
 
-- **Email/Password and Google must be enabled** in Firebase Authentication → Sign-in method. They are off in a new project, and until then sign-in fails with `auth/operation-not-allowed` however correct the credentials are.
-- **One administrator must exist already**, because approval is an administrator's decision. Seed the first one by hand — see [`docs/deployment.md`](docs/deployment.md).
+`pnpm licence list|activate|restart-trial|revoke` manages licences from your side; see [`docs/billing.md`](docs/billing.md).
 
-Nothing is emailed when somebody registers. A waiting request shows as a count beside **Staff** in the sidebar, so an administrator sees it from any screen.
-
-See [`docs/architecture.md`](docs/architecture.md), [`docs/security.md`](docs/security.md), and [`docs/deployment.md`](docs/deployment.md).
+See [`docs/architecture.md`](docs/architecture.md), [`docs/security.md`](docs/security.md), [`docs/deployment.md`](docs/deployment.md) and [`docs/billing.md`](docs/billing.md).

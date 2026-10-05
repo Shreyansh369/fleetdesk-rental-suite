@@ -1,6 +1,6 @@
 "use client";
 
-import { Printer, X } from "lucide-react";
+import { Printer, X } from "@/components/icons";
 
 import { createPortal } from "react-dom";
 

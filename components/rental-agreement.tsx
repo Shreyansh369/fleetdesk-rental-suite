@@ -8,7 +8,7 @@ import {
   Send,
   X,
   XCircle,
-} from "lucide-react";
+} from "@/components/icons";
 
 import { createPortal } from "react-dom";
 

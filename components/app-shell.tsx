@@ -28,7 +28,7 @@ import {
   UserRoundCheck,
   UsersRound,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useEffect,
@@ -39,7 +39,6 @@ import { useFirebaseAuth } from "./firebase-provider";
 import { WorkspaceBanner } from "./workspace-banner";
 
 import { getLocalBackend } from "@/lib/data/local-backend";
-import { reloadInto, setBackendMode } from "@/lib/data/mode";
 
 import { getFirebaseClient } from "@/lib/firebase/client";
 
@@ -367,13 +366,13 @@ export function AppShell({
     setLoggingOut(true);
 
     /*
-     * The demo has nobody to sign out: leaving it goes back to
-     * the welcome page, and the data stays for next time.
+     * Signing out of the demo returns to the demo sign-in, so
+     * another demo account can be tried; the data stays.
      */
     if (mode === "demo") {
       await getLocalBackend().db.flush();
-      setBackendMode(null);
-      reloadInto("/welcome");
+      await signOut(getFirebaseClient().auth);
+      router.replace("/login");
       return;
     }
 
@@ -535,16 +534,8 @@ export function AppShell({
               void logout()
             }
             disabled={loggingOut}
-            aria-label={
-              mode === "demo"
-                ? "Exit demo"
-                : "Sign out"
-            }
-            title={
-              mode === "demo"
-                ? "Exit demo"
-                : "Sign out"
-            }
+            aria-label="Sign out"
+            title="Sign out"
           >
             <LogOut
               size={18}

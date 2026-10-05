@@ -62,6 +62,7 @@ if (!(await workspaceRef.get()).exists) {
     ownerUid: user.uid,
     adminEmail: email.toLowerCase(),
     plan: "paid",
+    licenceType: "buyout",
     trialStartedAt: FieldValue.serverTimestamp(),
     paidAt: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),

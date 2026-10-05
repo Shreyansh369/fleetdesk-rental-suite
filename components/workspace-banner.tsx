@@ -12,7 +12,7 @@ import {
   UserPlus,
   Wrench,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useCallback,
@@ -31,17 +31,11 @@ import {
   addDemoStaffRequest,
   demoHasVehicles,
   exportDemoWorkspace,
-  listDemoProfiles,
   loadDemoSampleData,
   resetDemoWorkspace,
-  switchDemoProfile,
-  type DemoProfile,
+  signOutOfDemo,
 } from "@/lib/demo/demo-workspace";
-import {
-  LICENCE_PRICE_CENTS,
-  formatUsd,
-  licenceStatus,
-} from "@/lib/license";
+import { licenceStatus } from "@/lib/license";
 
 import { useFirebaseAuth } from "./firebase-provider";
 import { useMinuteClock } from "./protected-page";
@@ -107,7 +101,7 @@ export function WorkspaceBanner() {
           className="button button-primary workspace-banner-action"
           href="/billing"
         >
-          Buy licence · {formatUsd(LICENCE_PRICE_CENTS)}
+          Choose a plan
         </Link>
       )}
     </div>
@@ -117,9 +111,6 @@ export function WorkspaceBanner() {
 function DemoBar() {
   const auth = useFirebaseAuth();
 
-  const [profiles, setProfiles] = useState<
-    DemoProfile[]
-  >([]);
   const [empty, setEmpty] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(
@@ -136,13 +127,7 @@ function DemoBar() {
   >("operations");
 
   const refresh = useCallback(async () => {
-    const [list, hasVehicles] = await Promise.all([
-      listDemoProfiles(),
-      demoHasVehicles(),
-    ]);
-
-    setProfiles(list);
-    setEmpty(!hasVehicles);
+    setEmpty(!(await demoHasVehicles()));
   }, []);
 
   useEffect(() => {
@@ -172,6 +157,15 @@ function DemoBar() {
     } finally {
       setBusy(null);
     }
+  }
+
+  /*
+   * Some screens read once when they open rather than listening,
+   * so the page is reloaded to show the sample business at once.
+   */
+  async function loadSampleAndRefresh() {
+    await loadDemoSampleData();
+    window.location.reload();
   }
 
   async function addStaff(
@@ -214,8 +208,6 @@ function DemoBar() {
     });
   }
 
-  const currentUid = auth.user?.uid ?? "";
-
   return (
     <div className="workspace-banner is-demo">
       <div className="demo-bar-row">
@@ -228,32 +220,23 @@ function DemoBar() {
           </span>
         </span>
 
-        <label className="demo-bar-viewer">
-          <span>Viewing as</span>
-          <select
-            value={currentUid}
+        <span className="demo-bar-viewer">
+          Signed in as{" "}
+          <strong>
+            {auth.user?.displayName ??
+              auth.user?.email}
+          </strong>
+          <button
+            type="button"
+            className="link-button"
             disabled={Boolean(busy)}
-            onChange={(event) =>
-              void run("switch", () =>
-                switchDemoProfile(event.target.value),
-              )
+            onClick={() =>
+              void run("switch", () => signOutOfDemo())
             }
           >
-            {profiles.map((profile) => (
-              <option
-                key={profile.uid}
-                value={profile.uid}
-              >
-                {profile.fullName} —{" "}
-                {profile.status !== "approved"
-                  ? profile.status || "not approved"
-                  : profile.role === "admin"
-                    ? "Administrator"
-                    : "Operations"}
-              </option>
-            ))}
-          </select>
-        </label>
+            Switch account
+          </button>
+        </span>
 
         <button
           type="button"
@@ -291,9 +274,7 @@ function DemoBar() {
             className="link-button"
             disabled={Boolean(busy)}
             onClick={() =>
-              void run("sample", () =>
-                loadDemoSampleData(),
-              )
+              void run("sample", loadSampleAndRefresh)
             }
           >
             {busy === "sample"
@@ -317,9 +298,7 @@ function DemoBar() {
               className="button button-secondary"
               disabled={!empty || Boolean(busy)}
               onClick={() =>
-                void run("sample", () =>
-                  loadDemoSampleData(),
-                )
+                void run("sample", loadSampleAndRefresh)
               }
             >
               {busy === "sample" ? (
@@ -340,9 +319,9 @@ function DemoBar() {
             <h3>Add a staff member</h3>
             <p>
               In a real workspace colleagues sign up
-              from your invite link. Here, add one, then
-              approve them on the Staff screen and view
-              the workspace as them.
+              from your invite link. Here, add one, approve
+              them on the Staff screen, then sign in as them
+              with the demo password.
             </p>
             <form
               className="demo-staff-form"
@@ -397,7 +376,8 @@ function DemoBar() {
             <h3>Your demo data</h3>
             <p>
               Keep a copy of what you entered, or start
-              again from an empty workspace.
+              again from an empty workspace. The demo
+              accounts stay.
             </p>
             <div className="demo-tools-actions">
               <button

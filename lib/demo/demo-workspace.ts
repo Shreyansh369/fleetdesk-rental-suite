@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  DEMO_OWNER_UID,
+  ensureDemoAccounts,
   getLocalBackend,
 } from "@/lib/data/local-backend";
 import {
@@ -62,10 +62,18 @@ export async function listDemoProfiles(): Promise<
   }));
 }
 
-export async function switchDemoProfile(
-  uid: string,
+export async function signInToDemo(
+  email: string,
+  password: string,
 ): Promise<void> {
-  await getLocalBackend().auth.signInAs(uid);
+  await getLocalBackend().auth.signInWithPassword(
+    email,
+    password,
+  );
+}
+
+export async function signOutOfDemo(): Promise<void> {
+  await getLocalBackend().auth.signOut();
 }
 
 /*
@@ -151,44 +159,8 @@ export async function loadDemoSampleData(
         op: (name, data) =>
           workflows.callFirestoreOperation(name, data),
 
-        async createStaff(staff) {
-          const uids: Record<string, string> = {};
-          const batch = localWriteBatch(db);
-
-          for (const member of staff) {
-            /* The visitor is the sample business's administrator. */
-            if (member.key === "admin") {
-              uids.admin = DEMO_OWNER_UID;
-              continue;
-            }
-
-            const uid = `demo-${member.key}`;
-            uids[member.key] = uid;
-
-            batch.set(localDoc(db, "users", uid), {
-              email: member.email,
-              fullName: member.fullName,
-              mobile: member.mobile,
-              age: member.age,
-              requestedRole: member.role,
-              emailVerified: true,
-              ...(member.status === "approved"
-                ? {
-                    role: member.role,
-                    status: "approved",
-                    decidedAt: localServerTimestamp(),
-                    decidedByNameSnapshot:
-                      "Demo Administrator",
-                  }
-                : { role: null, status: "pending" }),
-              createdAt: localServerTimestamp(),
-              updatedAt: localServerTimestamp(),
-            });
-          }
-
-          await batch.commit();
-          return uids;
-        },
+        /* The demo accounts are the sample business's staff. */
+        createStaff: () => ensureDemoAccounts(db),
 
         async signInAs(member, uid) {
           const profile = db.readStored(

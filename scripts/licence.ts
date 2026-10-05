@@ -16,7 +16,7 @@
  *
  *   gcloud auth application-default login
  *   pnpm licence list    [--project <id>] [--all]
- *   pnpm licence activate <workspaceId|admin email> [--reference <Stripe payment id>]
+ *   pnpm licence activate <workspaceId|admin email> --plan <subscription|buyout> [--reference <Stripe payment id>]
  *   pnpm licence restart-trial <workspaceId|admin email>
  *   pnpm licence revoke <workspaceId|admin email>
  *
@@ -33,8 +33,9 @@ import {
 } from "firebase-admin/firestore";
 
 import {
-  INCLUDED_SUPPORT_DAYS,
+  PLANS,
   licenceStatus,
+  type PlanId,
 } from "../lib/license";
 
 function option(name: string): string | undefined {
@@ -59,7 +60,7 @@ function positional(): string[] {
     if (value === "--") continue;
 
     if (value.startsWith("--")) {
-      if (!value.includes("=") && ["--project", "--reference"].includes(value)) {
+      if (!value.includes("=") && ["--project", "--reference", "--plan"].includes(value)) {
         index += 1;
       }
       continue;
@@ -103,6 +104,7 @@ function describe(snapshot: DocumentSnapshot) {
   const data = snapshot.data() ?? {};
   const licence = licenceStatus({
     plan: String(data.plan ?? ""),
+    licenceType: data.licenceType === "subscription" || data.licenceType === "buyout" ? data.licenceType : null,
     trialStartedAt: dateOf(data.trialStartedAt),
     paidAt: dateOf(data.paidAt),
     paymentSubmittedAt: dateOf(data.paymentSubmittedAt),
@@ -119,7 +121,7 @@ function describe(snapshot: DocumentSnapshot) {
           ? licence.paymentSubmitted
             ? "expired — PAYMENT SUBMITTED"
             : "expired"
-          : "paid",
+          : `paid (${licence.plan?.name ?? "plan not recorded"})${data.billingIssue ? " — PAYMENT FAILED" : ""}`,
     createdAt: dateOf(data.createdAt)?.toISOString().slice(0, 10) ?? "",
     paymentSubmittedAt:
       dateOf(data.paymentSubmittedAt)?.toISOString().slice(0, 16) ?? "",
@@ -165,6 +167,7 @@ async function findWorkspace(
 export async function activateWorkspace(
   db: Firestore,
   workspaceId: string,
+  plan: PlanId,
   paymentReference: string | null,
 ): Promise<"activated" | "already-paid"> {
   const ref = db.collection("workspaces").doc(workspaceId);
@@ -182,6 +185,7 @@ export async function activateWorkspace(
 
     transaction.update(ref, {
       plan: "paid",
+      licenceType: plan,
       paidAt: FieldValue.serverTimestamp(),
       paymentReference,
       activatedAt: FieldValue.serverTimestamp(),
@@ -208,7 +212,8 @@ async function main(): Promise<void> {
         .filter(
           (row) =>
             process.argv.includes("--all") ||
-            row.state !== "paid",
+            !row.state.startsWith("paid") ||
+            row.state.includes("FAILED"),
         );
 
       console.table(rows);
@@ -219,19 +224,23 @@ async function main(): Promise<void> {
     }
 
     case "activate": {
-      if (!key) throw new Error("Usage: pnpm licence activate <workspaceId|admin email> [--reference <id>]");
+      const plan = option("--plan");
+      if (!key || (plan !== "subscription" && plan !== "buyout")) {
+        throw new Error("Usage: pnpm licence activate <workspaceId|admin email> --plan <subscription|buyout> [--reference <id>]");
+      }
 
       const workspace = await findWorkspace(db, key);
       const result = await activateWorkspace(
         db,
         workspace.id,
+        plan,
         option("--reference") ?? null,
       );
 
       console.log(
         result === "already-paid"
           ? `${workspace.id} (${workspace.get("name")}) was already paid; nothing changed.`
-          : `Activated ${workspace.id} (${workspace.get("name")}). Changes are included for ${INCLUDED_SUPPORT_DAYS} days; start the maintenance subscription after that.`,
+          : `Activated ${workspace.id} (${workspace.get("name")}) on the ${PLANS[plan].name} plan. Change requests are included for ${PLANS[plan].includedMaintenanceMonths} months; the ${PLANS[plan].monthlyCents / 100} USD monthly fee starts after ${PLANS[plan].monthlyStartsAfterMonths} months.`,
       );
       return;
     }

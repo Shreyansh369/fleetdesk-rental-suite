@@ -1,13 +1,22 @@
 /*
  * The commercial terms, in one place, and what they mean for a
- * workspace at a given moment.
+ * workspace at a given moment. Every price on the site, in the
+ * legal pages and in the billing function is read from here.
  *
- * - A trial lasts 7 days from the moment the workspace is
+ * - A trial lasts TRIAL_DAYS from the moment the workspace is
  *   created, for one administrator email, with as many staff as
- *   the administrator approves.
- * - Continuing after the trial is a one-time licence fee.
- * - Changes requested in the first month after payment are
- *   included; after that, maintenance is billed monthly.
+ *   the administrator approves. No card is needed to start.
+ * - Then one of two plans:
+ *   Subscription  a setup fee, then a monthly fee (subscription
+ *                 and maintenance together) charged automatically
+ *                 from the third month.
+ *   Buy outright  one payment that covers the whole first year:
+ *                 no monthly fee for twelve months, maintenance
+ *                 included for the first three. The monthly fee
+ *                 starts in month thirteen.
+ * - Hosting and the database are included in both. The only
+ *   extras are pass-through costs: an app-store listing and a
+ *   custom domain.
  *
  * firestore.rules repeats TRIAL_DAYS — it is the rule there, not
  * this file, that actually closes an expired trial — so the two
@@ -15,9 +24,100 @@
  */
 
 export const TRIAL_DAYS = 7;
-export const LICENCE_PRICE_CENTS = 49_900;
-export const INCLUDED_SUPPORT_DAYS = 30;
-export const MAINTENANCE_MONTHLY_CENTS = 2_000;
+
+export type PlanId = "subscription" | "buyout";
+
+export type Plan = {
+  id: PlanId;
+  name: string;
+  summary: string;
+  /* Charged when the plan is bought. */
+  upfrontCents: number;
+  /* Subscription and maintenance, charged monthly by autopay. */
+  monthlyCents: number;
+  /* Whole months after purchase before the first monthly charge. */
+  monthlyStartsAfterMonths: number;
+  /* Months after purchase during which change requests are free. */
+  includedMaintenanceMonths: number;
+};
+
+export const PLANS: Record<PlanId, Plan> = {
+  subscription: {
+    id: "subscription",
+    name: "Subscription",
+    summary:
+      "A smaller payment to start, then a monthly fee from the third month.",
+    upfrontCents: 59_900,
+    monthlyCents: 9_900,
+    monthlyStartsAfterMonths: 2,
+    includedMaintenanceMonths: 2,
+  },
+  buyout: {
+    id: "buyout",
+    name: "Buy outright",
+    summary:
+      "One payment covers the first year. No monthly fee until month 13.",
+    upfrontCents: 129_900,
+    monthlyCents: 9_900,
+    monthlyStartsAfterMonths: 12,
+    includedMaintenanceMonths: 3,
+  },
+};
+
+export const PLAN_ORDER: PlanId[] = ["subscription", "buyout"];
+
+/* What the customer pays in their first twelve months on a plan. */
+export function firstYearCents(plan: Plan): number {
+  const billedMonths = Math.max(
+    0,
+    12 - plan.monthlyStartsAfterMonths,
+  );
+
+  return plan.upfrontCents + billedMonths * plan.monthlyCents;
+}
+
+/* What buying outright saves over the subscription in year one. */
+export function buyoutSavings(): {
+  cents: number;
+  percent: number;
+} {
+  const subscription = firstYearCents(PLANS.subscription);
+  const buyout = firstYearCents(PLANS.buyout);
+  const cents = Math.max(0, subscription - buyout);
+
+  return {
+    cents,
+    percent: subscription
+      ? Math.round((cents / subscription) * 100)
+      : 0,
+  };
+}
+
+/*
+ * Pass-through costs, charged at what they cost us. A web app
+ * install on any phone, tablet, computer or TV browser is free.
+ */
+export const ADD_ONS = [
+  {
+    id: "android",
+    name: "Android app listing",
+    cents: 2_500,
+    period: "one-time",
+    detail:
+      "The Google Play developer registration, so the app can be installed from the Play Store under your name.",
+  },
+  {
+    id: "domain",
+    name: "Your own web address",
+    cents: 1_200,
+    period: "per year",
+    detail:
+      "A domain such as bookings.yourcompany.com, registered and connected for you.",
+  },
+] as const;
+
+export const HOSTING_NOTE =
+  "Hosting, database, backups and security updates are included in both plans.";
 
 const DAY_MS = 86_400_000;
 
@@ -29,9 +129,13 @@ export type WorkspaceRecord = {
   ownerUid: string;
   adminEmail: string;
   plan: WorkspacePlan | string;
+  /* Which plan was bought, once paid. */
+  licenceType: PlanId | null;
   trialStartedAt: Date | null;
   paidAt: Date | null;
   paymentSubmittedAt: Date | null;
+  /* Set by the billing webhook when an automatic payment fails. */
+  billingIssue: boolean;
 };
 
 export type LicenceStatus =
@@ -48,9 +152,10 @@ export type LicenceStatus =
     }
   | {
       state: "paid";
+      plan: Plan | null;
       paidAt: Date | null;
-      includedSupportEndsAt: Date | null;
-      maintenanceActive: boolean;
+      maintenanceIncludedUntil: Date | null;
+      monthlyStartsAt: Date | null;
     };
 
 export function trialEndsAt(
@@ -61,29 +166,62 @@ export function trialEndsAt(
   );
 }
 
+/* Calendar months, so "from the third month" is a date a person recognises. */
+export function addMonths(date: Date, months: number): Date {
+  const result = new Date(date.valueOf());
+  const day = result.getUTCDate();
+
+  result.setUTCDate(1);
+  result.setUTCMonth(result.getUTCMonth() + months);
+
+  const lastDay = new Date(
+    Date.UTC(
+      result.getUTCFullYear(),
+      result.getUTCMonth() + 1,
+      0,
+    ),
+  ).getUTCDate();
+
+  result.setUTCDate(Math.min(day, lastDay));
+
+  return result;
+}
+
 export function licenceStatus(
   workspace: Pick<
     WorkspaceRecord,
-    "plan" | "trialStartedAt" | "paidAt" | "paymentSubmittedAt"
-  >,
+    | "plan"
+    | "trialStartedAt"
+    | "paidAt"
+    | "paymentSubmittedAt"
+  > & {
+    licenceType?: PlanId | null;
+  },
   now: Date = new Date(),
 ): LicenceStatus {
   if (workspace.plan === "paid") {
-    const includedSupportEndsAt = workspace.paidAt
-      ? new Date(
-          workspace.paidAt.valueOf() +
-            INCLUDED_SUPPORT_DAYS * DAY_MS,
-        )
+    const plan = workspace.licenceType
+      ? PLANS[workspace.licenceType] ?? null
       : null;
 
     return {
       state: "paid",
+      plan,
       paidAt: workspace.paidAt,
-      includedSupportEndsAt,
-      maintenanceActive: Boolean(
-        includedSupportEndsAt &&
-          now >= includedSupportEndsAt,
-      ),
+      maintenanceIncludedUntil:
+        plan && workspace.paidAt
+          ? addMonths(
+              workspace.paidAt,
+              plan.includedMaintenanceMonths,
+            )
+          : null,
+      monthlyStartsAt:
+        plan && workspace.paidAt
+          ? addMonths(
+              workspace.paidAt,
+              plan.monthlyStartsAfterMonths,
+            )
+          : null,
     };
   }
 
@@ -125,16 +263,25 @@ export function formatUsd(cents: number): string {
 }
 
 /*
- * Checkout is a Stripe Payment Link: no server of ours creates a
- * session, so nothing secret is needed in the browser. The link
- * carries the workspace id as client_reference_id, which is how
- * the payment is matched to the workspace it unlocks, and the
- * administrator's email so the receipt goes to the right place.
+ * The no-server way to take payment: a Stripe Payment Link per
+ * plan, created in the Stripe Dashboard (docs/billing.md). The
+ * link carries the workspace id as client_reference_id, which is
+ * how the payment is matched to the workspace it unlocks, and
+ * the administrator's email so the receipt goes to the right
+ * place. When the billing function is deployed, the Billing page
+ * creates a Checkout Session through it instead.
  */
+export function paymentLinkFor(
+  plan: PlanId,
+): string | undefined {
+  return plan === "subscription"
+    ? process.env.NEXT_PUBLIC_STRIPE_LINK_SUBSCRIPTION
+    : process.env.NEXT_PUBLIC_STRIPE_LINK_BUYOUT;
+}
+
 export function stripeCheckoutUrl(
   workspace: Pick<WorkspaceRecord, "id" | "adminEmail">,
-  baseUrl: string | undefined = process.env
-    .NEXT_PUBLIC_STRIPE_PAYMENT_LINK,
+  baseUrl: string | undefined,
 ): string | null {
   const base = baseUrl?.trim();
 
@@ -167,6 +314,13 @@ export function stripeCheckoutUrl(
   }
 
   return url.toString();
+}
+
+/* True when the Stripe billing function is deployed for this build. */
+export function checkoutFunctionEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_FUNCTION === "true"
+  );
 }
 
 export function salesEmail(): string | null {

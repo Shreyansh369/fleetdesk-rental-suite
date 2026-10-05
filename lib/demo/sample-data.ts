@@ -15,7 +15,6 @@ import type { DamageMark } from "@/lib/damage";
  * runs it against the visitor's local store.
  */
 
-export const SAMPLE_PASSWORD = "DemoPass123!";
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
 
@@ -23,15 +22,41 @@ const HOUR = 3_600_000;
    Staff
    --------------------------------------------------------------- */
 
-export type SampleStaff = { key: string; email: string; fullName: string; mobile: string; age: number; role: "admin" | "operations"; status: "approved" | "pending" };
+export type SampleStaff = {
+  key: string;
+  email: string;
+  fullName: string;
+  /* What the person does, shown on the demo sign-in screen. */
+  title: string;
+  mobile: string;
+  age: number;
+  role: "admin" | "operations";
+  status: "approved" | "pending";
+};
+
+/*
+ * The demo's sign-ins. Every account uses DEMO_PASSWORD. The two
+ * administrators see everything; the operations accounts see the
+ * desk work but not Finance, Staff or Billing; the new hire is
+ * waiting for an administrator to approve them, which is how the
+ * approval flow can be tried.
+ *
+ * The keys are what the sample workflows below act as.
+ */
+export const DEMO_PASSWORD = "Demo@1234";
 
 export const SAMPLE_STAFF: readonly SampleStaff[] = [
-  { key: "admin", email: "admin@demo.fleetdesk.app", fullName: "Alex Morgan", mobile: "+1 555 010 1001", age: 41, role: "admin", status: "approved" },
-  { key: "maria", email: "maria@demo.fleetdesk.app", fullName: "Maria Lopez", mobile: "+1 555 010 1002", age: 29, role: "operations", status: "approved" },
-  { key: "james", email: "james@demo.fleetdesk.app", fullName: "James Carter", mobile: "+1 555 010 1003", age: 34, role: "operations", status: "approved" },
-  { key: "priya", email: "priya@demo.fleetdesk.app", fullName: "Priya Shah", mobile: "+1 555 010 1004", age: 26, role: "operations", status: "approved" },
-  { key: "tom", email: "tom@demo.fleetdesk.app", fullName: "Tom Reed", mobile: "+1 555 010 1005", age: 22, role: "operations", status: "pending" },
+  { key: "admin", email: "demo.admin@gmail.com", fullName: "Alex Morgan", title: "Owner", mobile: "+1 555 010 1001", age: 41, role: "admin", status: "approved" },
+  { key: "manager", email: "demo.manager@gmail.com", fullName: "Daniel Reyes", title: "Branch manager", mobile: "+1 555 010 1006", age: 38, role: "admin", status: "approved" },
+  { key: "maria", email: "demo.frontdesk@gmail.com", fullName: "Maria Lopez", title: "Front desk", mobile: "+1 555 010 1002", age: 29, role: "operations", status: "approved" },
+  { key: "james", email: "demo.fleet@gmail.com", fullName: "James Carter", title: "Fleet and workshop", mobile: "+1 555 010 1003", age: 34, role: "operations", status: "approved" },
+  { key: "priya", email: "demo.accounts@gmail.com", fullName: "Priya Shah", title: "Accounts", mobile: "+1 555 010 1004", age: 26, role: "operations", status: "approved" },
+  { key: "hr", email: "demo.hr@gmail.com", fullName: "Hannah Brooks", title: "HR", mobile: "+1 555 010 1007", age: 31, role: "operations", status: "approved" },
+  { key: "tom", email: "demo.newhire@gmail.com", fullName: "Tom Reed", title: "New hire, awaiting approval", mobile: "+1 555 010 1005", age: 22, role: "operations", status: "pending" },
 ];
+
+/* The CLI seed's name for the same password. */
+export const SAMPLE_PASSWORD = DEMO_PASSWORD;
 
 export type SampleDataHost = {
   /* Runs a named workflow from lib/services/firestore-client.ts. */

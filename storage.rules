@@ -1,6 +1,9 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Legacy, single-workspace paths only. Workspaces keep their media on
+    // Cloudinary; with staff profiles now under workspaces/{id}/users, the
+    // root users/{uid} read below matches nobody, so these paths are closed.
     // Roles live in Firestore (users/{uid}), not in custom claims: the workspace
     // has no Admin SDK to mint claims with, so reading the profile is the only
     // check that matches how staff are actually approved.

@@ -3,13 +3,14 @@
 import Link from "next/link";
 
 import {
+  AlertTriangle,
   BadgeCheck,
   CreditCard,
   Hourglass,
   LoaderCircle,
   Mail,
   ShieldAlert,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useEffect,
@@ -18,25 +19,23 @@ import {
 } from "react";
 
 import {
-  INCLUDED_SUPPORT_DAYS,
-  LICENCE_PRICE_CENTS,
-  MAINTENANCE_MONTHLY_CENTS,
   formatUsd,
   licenceStatus,
   salesEmail,
-  stripeCheckoutUrl,
 } from "@/lib/license";
 import {
   liveBackendAvailable,
   reloadInto,
   setBackendMode,
 } from "@/lib/data/mode";
+import { billingPortalUrl } from "@/lib/services/billing";
 import { recordPaymentSubmitted } from "@/lib/services/workspace";
 
 import { AppShell } from "./app-shell";
 import { useFirebaseAuth } from "./firebase-provider";
-import { LicenceTerms } from "./licence-terms";
+import { PricingPlans } from "./pricing-plans";
 import { useMinuteClock } from "./protected-page";
+import { useCheckout } from "./use-checkout";
 
 function formatDate(value: Date | null): string {
   return value
@@ -45,13 +44,19 @@ function formatDate(value: Date | null): string {
         month: "long",
         day: "numeric",
       })
-    : "—";
+    : "Not recorded";
 }
 
 export function BillingOverview() {
   const auth = useFirebaseAuth();
   const now = useMinuteClock();
   const sales = salesEmail();
+  const checkout = useCheckout(auth.workspace);
+
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalError, setPortalError] = useState<
+    string | null
+  >(null);
 
   if (auth.role !== "admin") {
     return (
@@ -63,8 +68,8 @@ export function BillingOverview() {
           <div>
             <h2>Administrator access required</h2>
             <p>
-              Only an administrator can see or change
-              the licence for this workspace.
+              Only an administrator can see or change the
+              plan for this workspace.
             </p>
           </div>
         </section>
@@ -72,223 +77,232 @@ export function BillingOverview() {
     );
   }
 
-  /* The demo has no licence: it shows the offer. */
+  /* The demo has no licence: it shows the plans and the way to a trial. */
   if (auth.mode === "demo" || !auth.workspace) {
     return (
-      <AppShell title="Billing" eyebrow="Pricing">
-        <section className="billing-grid">
-          <article className="billing-card">
-            <h2>What it costs</h2>
-            <LicenceTerms />
-          </article>
+      <AppShell title="Plans and billing" eyebrow="Demo">
+        <section className="billing-intro">
+          <p>
+            This is what FleetDesk costs once you use it for
+            your business. The demo itself is free and stays
+            in this browser.
+          </p>
 
-          <article className="billing-card">
-            <h2>Ready to try it for real?</h2>
-            <p>
-              The demo lives in this browser. A free
-              trial is your own workspace online: your
-              team signs in from their own devices, and
-              everything you enter is kept when you buy
-              the licence.
-            </p>
-
-            {liveBackendAvailable() ? (
-              <button
-                type="button"
+          {liveBackendAvailable() ? (
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => {
+                setBackendMode("live");
+                reloadInto("/trial");
+              }}
+            >
+              Start the 7-day free trial
+            </button>
+          ) : (
+            sales && (
+              <a
                 className="button button-primary"
-                onClick={() => {
-                  setBackendMode("live");
-                  reloadInto("/trial");
-                }}
+                href={`mailto:${sales}?subject=${encodeURIComponent(
+                  "FleetDesk free trial",
+                )}`}
               >
-                Start 7-day free trial
-              </button>
-            ) : (
-              sales && (
-                <a
-                  className="button button-primary"
-                  href={`mailto:${sales}?subject=${encodeURIComponent("FleetDesk free trial")}`}
-                >
-                  <Mail size={17} />
-                  Ask us for a trial
-                </a>
-              )
-            )}
-          </article>
+                <Mail size={17} />
+                Ask us for a trial
+              </a>
+            )
+          )}
         </section>
+
+        <PricingPlans />
       </AppShell>
     );
   }
 
   const workspace = auth.workspace;
   const licence = licenceStatus(workspace, now);
-  const checkout = stripeCheckoutUrl(workspace);
-  const portal =
-    process.env.NEXT_PUBLIC_STRIPE_CUSTOMER_PORTAL?.trim();
+
+  async function openPortal() {
+    setPortalBusy(true);
+    setPortalError(null);
+
+    try {
+      const url = await billingPortalUrl();
+
+      if (!url) {
+        throw new Error(
+          sales
+            ? `Email ${sales} to change your card or get an invoice.`
+            : "The billing portal is not set up yet.",
+        );
+      }
+
+      window.location.assign(url);
+    } catch (cause) {
+      setPortalError(
+        cause instanceof Error
+          ? cause.message
+          : "The billing portal could not be opened.",
+      );
+      setPortalBusy(false);
+    }
+  }
+
+  if (licence.state === "paid") {
+    return (
+      <AppShell
+        title="Plans and billing"
+        eyebrow={workspace.name || "Licence"}
+      >
+        {workspace.billingIssue && (
+          <p className="notice is-error" role="alert">
+            <AlertTriangle size={17} />
+            The last automatic payment did not go through.
+            Update your card in the billing portal to keep
+            the subscription active.
+          </p>
+        )}
+
+        <section className="billing-grid">
+          <article className="billing-card">
+            <div className="billing-state is-paid">
+              <BadgeCheck size={18} />
+              {licence.plan
+                ? `${licence.plan.name} plan`
+                : "Licensed"}
+            </div>
+
+            <dl className="billing-facts">
+              <div>
+                <dt>Started</dt>
+                <dd>{formatDate(licence.paidAt)}</dd>
+              </div>
+              {licence.plan && (
+                <>
+                  <div>
+                    <dt>Change requests included until</dt>
+                    <dd>
+                      {formatDate(
+                        licence.maintenanceIncludedUntil,
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Monthly fee</dt>
+                    <dd>
+                      {formatUsd(licence.plan.monthlyCents)}
+                      /month from{" "}
+                      {formatDate(licence.monthlyStartsAt)}
+                    </dd>
+                  </div>
+                </>
+              )}
+            </dl>
+
+            <p className="quiet">
+              The monthly fee is charged automatically to the
+              card you paid with. Change the card, download
+              invoices or cancel the monthly plan in the
+              billing portal.
+            </p>
+
+            {portalError && (
+              <p className="form-error">{portalError}</p>
+            )}
+
+            <div className="billing-actions">
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={portalBusy}
+                onClick={() => void openPortal()}
+              >
+                {portalBusy ? (
+                  <LoaderCircle size={17} className="spin" />
+                ) : (
+                  <CreditCard size={17} />
+                )}
+                Billing portal
+              </button>
+
+              {sales && (
+                <a
+                  className="button button-secondary"
+                  href={`mailto:${sales}?subject=${encodeURIComponent(
+                    `Change request: ${workspace.name}`,
+                  )}`}
+                >
+                  <Mail size={17} />
+                  Request a change
+                </a>
+              )}
+            </div>
+          </article>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
-      title="Billing"
+      title="Plans and billing"
       eyebrow={workspace.name || "Licence"}
     >
-      <section className="billing-grid">
-        <article className="billing-card billing-status">
-          {licence.state === "paid" ? (
-            <>
-              <div className="billing-state is-paid">
-                <BadgeCheck size={20} />
-                Licensed
-              </div>
+      <section className="billing-intro">
+        <div
+          className={`billing-state ${
+            licence.state === "trial"
+              ? "is-trial"
+              : "is-expired"
+          }`}
+        >
+          <Hourglass size={18} />
+          {licence.state === "trial"
+            ? `Free trial, ${
+                licence.daysLeft === 1
+                  ? "last day"
+                  : `${licence.daysLeft} days left`
+              }`
+            : "Free trial ended"}
+        </div>
 
-              <dl className="billing-facts">
-                <div>
-                  <dt>Licence bought</dt>
-                  <dd>{formatDate(licence.paidAt)}</dd>
-                </div>
-                <div>
-                  <dt>Changes included until</dt>
-                  <dd>
-                    {formatDate(
-                      licence.includedSupportEndsAt,
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Maintenance</dt>
-                  <dd>
-                    {formatUsd(
-                      MAINTENANCE_MONTHLY_CENTS,
-                    )}
-                    /month
-                    {licence.maintenanceActive
-                      ? ""
-                      : ` from ${formatDate(
-                          licence.includedSupportEndsAt,
-                        )}`}
-                  </dd>
-                </div>
-              </dl>
-
-              <p className="quiet">
-                Changes you ask for in the first{" "}
-                {INCLUDED_SUPPORT_DAYS} days after buying
-                are included. After that, maintenance
-                covers updates, fixes and support.
-              </p>
-
-              <div className="billing-actions">
-                {sales && (
-                  <a
-                    className="button button-primary"
-                    href={`mailto:${sales}?subject=${encodeURIComponent(
-                      `Change request — ${workspace.name}`,
-                    )}`}
-                  >
-                    <Mail size={17} />
-                    Request a change
-                  </a>
-                )}
-
-                {portal && (
-                  <a
-                    className="button button-secondary"
-                    href={portal}
-                  >
-                    <CreditCard size={17} />
-                    Manage maintenance billing
-                  </a>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div
-                className={`billing-state ${
-                  licence.state === "trial"
-                    ? "is-trial"
-                    : "is-expired"
-                }`}
-              >
-                <Hourglass size={20} />
-                {licence.state === "trial"
-                  ? `Free trial — ${
-                      licence.daysLeft === 1
-                        ? "last day"
-                        : `${licence.daysLeft} days left`
-                    }`
-                  : "Free trial ended"}
-              </div>
-
-              <dl className="billing-facts">
-                <div>
-                  <dt>
-                    {licence.state === "trial"
-                      ? "Trial ends"
-                      : "Trial ended"}
-                  </dt>
-                  <dd>
-                    {licence.trialEndsAt.toLocaleString()}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Administrator</dt>
-                  <dd>{workspace.adminEmail}</dd>
-                </div>
-              </dl>
-
-              {workspace.paymentSubmittedAt ? (
-                <p className="billing-pending">
-                  <LoaderCircle
-                    size={16}
-                    className="spin"
-                  />
-                  We have your payment and are
-                  activating the licence. This page
-                  updates by itself.
-                </p>
-              ) : checkout ? (
-                <a
-                  className="button button-primary billing-pay"
-                  href={checkout}
-                >
-                  <CreditCard size={18} />
-                  Buy the licence ·{" "}
-                  {formatUsd(LICENCE_PRICE_CENTS)}
-                </a>
-              ) : (
-                <p className="form-error">
-                  Online payment is not set up yet.
-                  {sales
-                    ? ` Email ${sales} and we will send you a payment link.`
-                    : ""}
-                </p>
-              )}
-
-              <p className="quiet">
-                Paid securely with Stripe. Everything
-                your team entered during the trial is
-                kept.
-              </p>
-            </>
-          )}
-        </article>
-
-        <article className="billing-card">
-          <h2>Your licence</h2>
-          <LicenceTerms />
-        </article>
+        <p>
+          {licence.state === "trial"
+            ? `Your trial ends ${licence.trialEndsAt.toLocaleString()}. Choose a plan any time before then and nothing stops; everything your team has entered carries on.`
+            : "Choose a plan to open the workspace again. Everything your team entered is kept."}
+        </p>
       </section>
+
+      {workspace.paymentSubmittedAt ? (
+        <p className="notice">
+          <LoaderCircle size={17} className="spin" />
+          Stripe has your payment and the licence is being
+          switched on. This page updates by itself.
+        </p>
+      ) : (
+        <>
+          {checkout.error && (
+            <p className="notice is-error" role="alert">
+              {checkout.error}
+            </p>
+          )}
+
+          <PricingPlans
+            onChoose={(plan) => void checkout.choose(plan)}
+            busyPlan={checkout.busyPlan}
+          />
+        </>
+      )}
     </AppShell>
   );
 }
 
 /*
  * Where Stripe sends the administrator after a completed
- * checkout. The payment link must be configured to redirect
- * here (see docs/billing.md). Arriving here proves nothing —
- * anyone can open this address — so it only flags the
- * workspace for us to match against the Stripe payment;
- * the licence is switched on from our side.
+ * checkout (the success URL). Arriving here proves nothing —
+ * anyone can open this address — so it only flags the workspace
+ * for us; the licence is switched on by the billing webhook, or
+ * by us once the payment is matched.
  */
 export function PaymentReturn() {
   const auth = useFirebaseAuth();
@@ -320,7 +334,7 @@ export function PaymentReturn() {
           cause,
         );
         setError(
-          "Your payment went through, but we could not note it on your workspace. It will still be matched from Stripe — or email us your receipt.",
+          "Your payment went through, but we could not note it on your workspace. It is still matched from Stripe; you can also email us your receipt.",
         );
       },
     );
@@ -333,33 +347,27 @@ export function PaymentReturn() {
           <BadgeCheck />
         </div>
 
-        <p className="page-kicker">
-          Payment received
-        </p>
+        <p className="page-kicker">Payment received</p>
 
         <h1>Thank you</h1>
 
         {workspace?.plan === "paid" ? (
           <p>
-            Your licence is active. Changes you ask
-            for in the next {INCLUDED_SUPPORT_DAYS} days
-            are included.
+            Your plan is active. A receipt is on its way from
+            Stripe.
           </p>
         ) : (
           <p>
-            Stripe has confirmed your payment. We are
-            activating your licence now; your workspace
-            opens by itself as soon as it is done, with
-            everything from your trial still there.
+            Stripe has confirmed your payment and the licence
+            is being switched on. The workspace opens by
+            itself as soon as it is done, with everything
+            from your trial still there.
           </p>
         )}
 
         {error && <p className="form-error">{error}</p>}
 
-        <Link
-          className="button button-primary"
-          href="/"
-        >
+        <Link className="button button-primary" href="/">
           Go to the workspace
         </Link>
       </section>

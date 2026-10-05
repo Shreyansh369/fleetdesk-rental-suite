@@ -10,7 +10,7 @@ import {
   UserRoundCheck,
   UserRoundX,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useCallback,

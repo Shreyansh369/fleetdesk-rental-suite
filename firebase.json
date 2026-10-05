@@ -8,9 +8,18 @@
     "rules": "storage.rules"
   },
 
-  "functions": {
-    "source": "functions"
-  },
+  "//functions": "Two codebases. 'default' is the reference implementation of the workflows and is never deployed. 'billing' is the Stripe integration (docs/billing.md), deployed with: firebase deploy --only functions:billing",
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default"
+    },
+    {
+      "source": "billing",
+      "codebase": "billing",
+      "predeploy": ["pnpm --dir \"$RESOURCE_DIR\" build"]
+    }
+  ],
 
   "hosting": {
     "public": "out",
@@ -31,7 +40,7 @@
         "headers": [
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://res.cloudinary.com https://firebasestorage.googleapis.com; connect-src 'self' https://api.cloudinary.com https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://www.google.com https://www.recaptcha.net; object-src 'none'; base-uri 'self'; form-action 'self'"
+            "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://res.cloudinary.com https://firebasestorage.googleapis.com; connect-src 'self' https://api.cloudinary.com https://*.cloudfunctions.net https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://www.google.com https://www.recaptcha.net; object-src 'none'; base-uri 'self'; form-action 'self'"
           },
           {
             "key": "X-Content-Type-Options",

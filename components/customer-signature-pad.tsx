@@ -1,6 +1,6 @@
 "use client";
 
-import { Eraser } from "lucide-react";
+import { Eraser } from "@/components/icons";
 import { useCallback, useEffect, useRef } from "react";
 
 const CANVAS_HEIGHT = 220;

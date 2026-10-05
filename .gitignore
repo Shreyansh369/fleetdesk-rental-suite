@@ -6,6 +6,8 @@ playwright-report/
 test-results/
 functions/lib/
 functions/node_modules/
+billing/lib/
+billing/node_modules/
 .env.local
 .env.*.local
 .firebase/

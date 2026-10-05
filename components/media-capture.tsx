@@ -6,7 +6,7 @@ import {
   LoaderCircle,
   RotateCcw,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useEffect,

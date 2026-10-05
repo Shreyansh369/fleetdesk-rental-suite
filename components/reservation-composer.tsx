@@ -22,7 +22,7 @@ import {
   Search,
   UserRound,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useEffect,

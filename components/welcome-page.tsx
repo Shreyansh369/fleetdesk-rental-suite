@@ -1,66 +1,96 @@
 "use client";
 
 import {
-  ArrowRight,
-  BarChart3,
-  CalendarDays,
-  CarFront,
-  ClipboardCheck,
-  FileSignature,
-  FlaskConical,
-  Mail,
-  ReceiptText,
-  ShieldCheck,
-  UsersRound,
-} from "lucide-react";
-
-import {
   useEffect,
   useState,
 } from "react";
+
+import {
+  ArrowRight,
+  Desktop,
+  DeviceMobile,
+  Television,
+} from "@/components/icons";
 
 import {
   liveBackendAvailable,
   reloadInto,
   setBackendMode,
 } from "@/lib/data/mode";
+import { DEMO_PASSWORD } from "@/lib/demo/sample-data";
 import {
   TRIAL_DAYS,
   salesEmail,
 } from "@/lib/license";
 
-import { LicenceTerms } from "./licence-terms";
+import { LegalFooter } from "./legal-footer";
+import { PricingPlans } from "./pricing-plans";
+import { SiteHeader } from "./site-header";
 
-const FEATURES = [
+const DAY = [
   {
-    icon: CalendarDays,
-    title: "Bookings to returns",
-    text: "Book, check out, extend and return, with overlap checks and rates locked at booking.",
+    heading: "At the counter",
+    points: [
+      "Book a vehicle against live availability; overlapping bookings are refused.",
+      "Check the renter out with a signed agreement, the deposit and the first payment in one step.",
+      "Extend a hire, add extra hours or take a part payment without starting over.",
+    ],
   },
   {
-    icon: FileSignature,
-    title: "Agreements",
-    text: "Printable rental agreements, signed on screen, reviewed and approved before they go out.",
+    heading: "On the lot",
+    points: [
+      "Mark scratches, dents and chips on the vehicle drawing at handover and at return.",
+      "New damage at return shows in red against what was already there.",
+      "Service dates, insurance and registration expiry are flagged before they lapse.",
+    ],
   },
   {
-    icon: ClipboardCheck,
-    title: "Damage records",
-    text: "Mark damage on the vehicle drawings at handover and return; new damage shows in red.",
+    heading: "In the office",
+    points: [
+      "Every payment, discount and expense lands in one ledger that cannot be edited after the fact.",
+      "Discounts from staff wait for an administrator; agreements are reviewed before they go out.",
+      "Revenue, costs and margin per vehicle for any date range, each line printable as a bill.",
+    ],
   },
   {
-    icon: ReceiptText,
-    title: "Payments and expenses",
-    text: "Deposits, balances, discounts that wait for approval, and what the fleet costs to run.",
+    heading: "For the owner",
+    points: [
+      "Staff join from an invite link and only see what their role allows.",
+      "Finance, staff approval and billing stay with administrators.",
+      "Each business's data is kept apart from every other's and enforced on the server.",
+    ],
+  },
+];
+
+const FAQ = [
+  {
+    question: "Do I need a card to start the trial?",
+    answer: `No. The ${TRIAL_DAYS}-day trial needs only an email address. You choose a plan, and pay through Stripe, when you decide to keep going.`,
   },
   {
-    icon: BarChart3,
-    title: "Finance",
-    text: "Revenue, costs and margin per vehicle, with every entry opening as a printable bill.",
+    question: "Is anything I type into the demo sent to you?",
+    answer:
+      "No. The demo runs in your browser and keeps its data on your device. It is a good place for your own vehicles and rates, but not for real customers' details.",
   },
   {
-    icon: UsersRound,
-    title: "Your team",
-    text: "Staff sign up from your invite link; you approve them as Operations or Administrator.",
+    question: "What happens to the trial data when I pay?",
+    answer:
+      "Nothing. The workspace your team used during the trial is the one you keep, with everything still in it.",
+  },
+  {
+    question: "Which devices does it run on?",
+    answer:
+      "Any current browser on Windows, macOS, Linux, Android, iPhone, iPad or a smart TV. It can be added to the home screen and opens like an app.",
+  },
+  {
+    question: "Are hosting and the database extra?",
+    answer:
+      "No. Hosting, the database, backups and security updates are included in both plans. The only extras are an Android store listing or your own domain, at cost, if you want them.",
+  },
+  {
+    question: "Can I cancel?",
+    answer:
+      "Yes. The monthly fee can be cancelled at any time from the billing portal, and upfront payments can be refunded within 14 days.",
   },
 ];
 
@@ -70,192 +100,233 @@ const FEATURES = [
  * want their team on it, or signs in to a workspace they have.
  */
 export function WelcomePage() {
-  /* Decided after mount: the page is pre-rendered without env access in the browser. */
-  const [live, setLive] = useState<boolean | null>(
-    null,
-  );
+  const [live, setLive] = useState<boolean | null>(null);
 
   useEffect(() => {
-    queueMicrotask(() =>
-      setLive(liveBackendAvailable()),
-    );
+    queueMicrotask(() => setLive(liveBackendAvailable()));
   }, []);
 
   const sales = salesEmail();
 
-  function tryDemo() {
+  function openDemo() {
     setBackendMode("demo");
-    reloadInto("/");
+    reloadInto("/login");
   }
 
-  function goLive(path: string) {
+  function startTrial() {
     setBackendMode("live");
-    reloadInto(path);
+    reloadInto("/trial");
   }
 
   return (
-    <main className="welcome">
-      <header className="welcome-nav">
-        <div className="welcome-brand">
-          <img
-            src="/brand/logo.svg"
-            alt=""
-            width={34}
-            height={34}
-          />
-          <strong>FleetDesk</strong>
-        </div>
+    <div className="site">
+      <SiteHeader />
 
-        {live && (
-          <button
-            type="button"
-            className="button button-secondary"
-            onClick={() => goLive("/login")}
-          >
-            Sign in
-          </button>
-        )}
-      </header>
+      <main>
+        <section className="hero">
+          <div className="hero-copy">
+            <h1>
+              Bookings, handovers and agreements for car rental
+              offices.
+            </h1>
 
-      <section className="welcome-hero">
-        <p className="page-kicker">
-          Car rental operations software
-        </p>
+            <p className="hero-lede">
+              FleetDesk keeps your fleet, customers, rentals and
+              money in one workspace your whole team can use from
+              the counter, the lot or the office. Try the full
+              product with your own numbers today, then run it
+              for real with a {TRIAL_DAYS}-day trial.
+            </p>
 
-        <h1>
-          Run your rental desk in one place.
-        </h1>
-
-        <p className="welcome-lede">
-          Bookings, handovers, agreements, damage,
-          payments, expenses and finance — for you
-          and your staff. Try it with your own
-          numbers right now; nothing to sign up for.
-        </p>
-
-        <div className="welcome-actions">
-          <button
-            type="button"
-            className="button button-primary welcome-cta"
-            onClick={tryDemo}
-          >
-            <FlaskConical size={18} />
-            Try it now — free, no sign-up
-            <ArrowRight size={18} />
-          </button>
-
-          {live ? (
-            <button
-              type="button"
-              className="button button-secondary welcome-cta"
-              onClick={() => goLive("/trial")}
-            >
-              Start {TRIAL_DAYS}-day free trial
-            </button>
-          ) : (
-            live === false &&
-            sales && (
-              <a
-                className="button button-secondary welcome-cta"
-                href={`mailto:${sales}?subject=${encodeURIComponent(
-                  "FleetDesk free trial",
-                )}`}
+            <div className="hero-actions">
+              <button
+                type="button"
+                className="button button-primary button-large"
+                onClick={openDemo}
               >
-                <Mail size={18} />
-                Ask for a {TRIAL_DAYS}-day trial
-              </a>
-            )
+                Open the demo
+                <ArrowRight size={18} />
+              </button>
+
+              {live ? (
+                <button
+                  type="button"
+                  className="button button-secondary button-large"
+                  onClick={startTrial}
+                >
+                  Start a {TRIAL_DAYS}-day trial
+                </button>
+              ) : (
+                live === false &&
+                sales && (
+                  <a
+                    className="button button-secondary button-large"
+                    href={`mailto:${sales}?subject=${encodeURIComponent(
+                      "FleetDesk trial",
+                    )}`}
+                  >
+                    Ask for a {TRIAL_DAYS}-day trial
+                  </a>
+                )
+              )}
+            </div>
+
+            <p className="hero-demo-note">
+              Demo sign-in: <code>demo.admin@gmail.com</code>{" "}
+              with password <code>{DEMO_PASSWORD}</code>. No
+              account needed; everything stays in your browser.
+            </p>
+          </div>
+
+          <figure className="hero-shot">
+            <img
+              src="/marketing/dashboard.png"
+              alt="The FleetDesk overview: fleet counts, vehicles out on hire, today's pickups and returns."
+              width={1440}
+              height={900}
+            />
+          </figure>
+        </section>
+
+        <section className="section" id="features">
+          <div className="section-head">
+            <h2>What it handles</h2>
+            <p>
+              Built around the work a rental office does every
+              day, not a generic booking calendar.
+            </p>
+          </div>
+
+          <div className="day-grid">
+            {DAY.map((part) => (
+              <div key={part.heading} className="day-part">
+                <h3>{part.heading}</h3>
+                <ul>
+                  {part.points.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="section section-steps">
+          <div className="section-head">
+            <h2>How to start</h2>
+          </div>
+
+          <ol className="steps">
+            <li>
+              <h3>Try it on your own</h3>
+              <p>
+                Open the demo and sign in as the owner, a
+                manager or a desk employee. Add your vehicles
+                and rates, or load the sample business.
+              </p>
+            </li>
+            <li>
+              <h3>Run a trial with your team</h3>
+              <p>
+                Start a {TRIAL_DAYS}-day trial with your email.
+                You get a private online workspace and an invite
+                link for your staff.
+              </p>
+            </li>
+            <li>
+              <h3>Choose a plan</h3>
+              <p>
+                Pay by card through Stripe. The trial workspace
+                becomes yours, with everything your team entered.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <section className="section" id="pricing">
+          <div className="section-head">
+            <h2>Pricing</h2>
+            <p>
+              One workspace for the whole business. No charge per
+              user, per vehicle or per booking.
+            </p>
+          </div>
+
+          <PricingPlans />
+
+          {live && (
+            <p className="section-cta">
+              <button
+                type="button"
+                className="button button-primary"
+                onClick={startTrial}
+              >
+                Start the free trial
+              </button>
+            </p>
           )}
-        </div>
+        </section>
 
-        <p className="welcome-note">
-          <ShieldCheck size={16} />
-          The demo runs entirely in your browser:
-          what you enter stays on this device.
-        </p>
-      </section>
+        <section className="section devices">
+          <div className="section-head">
+            <h2>On the devices you already have</h2>
+            <p>
+              The same workspace adapts to whatever is in front
+              of the person using it.
+            </p>
+          </div>
 
-      <section className="welcome-steps">
-        <article>
-          <span>1</span>
-          <h2>Try it yourself</h2>
-          <p>
-            Open the demo, add your vehicles, rates
-            and a few customers, and run a booking
-            through checkout and return. Or load a
-            sample business to look around first.
-          </p>
-        </article>
+          <ul className="device-list">
+            <li>
+              <Desktop size={22} />
+              <div>
+                <h3>Office computers</h3>
+                <p>
+                  Full-width tables for finance, the fleet and
+                  the booking history.
+                </p>
+              </div>
+            </li>
+            <li>
+              <DeviceMobile size={22} />
+              <div>
+                <h3>Phones and tablets</h3>
+                <p>
+                  Handover on the lot: photos, damage marks and
+                  the customer&apos;s signature on screen.
+                </p>
+              </div>
+            </li>
+            <li>
+              <Television size={22} />
+              <div>
+                <h3>A screen on the wall</h3>
+                <p>
+                  Today&apos;s pickups, returns and overdue hires,
+                  readable from across the room.
+                </p>
+              </div>
+            </li>
+          </ul>
+        </section>
 
-        <article>
-          <span>2</span>
-          <h2>Test it with your team</h2>
-          <p>
-            Start a {TRIAL_DAYS}-day free trial with
-            your email. You get your own private
-            online workspace; invite your staff with
-            a link and run it for real.
-          </p>
-        </article>
+        <section className="section faq">
+          <div className="section-head">
+            <h2>Questions</h2>
+          </div>
 
-        <article>
-          <span>3</span>
-          <h2>Keep it</h2>
-          <p>
-            Pay once to keep going — everything from
-            the trial carries on. The first month of
-            changes is on us.
-          </p>
-        </article>
-      </section>
+          <div className="faq-list">
+            {FAQ.map((item) => (
+              <details key={item.question}>
+                <summary>{item.question}</summary>
+                <p>{item.answer}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      </main>
 
-      <section className="welcome-features">
-        {FEATURES.map(({ icon: Icon, title, text }) => (
-          <article key={title}>
-            <Icon size={20} />
-            <h3>{title}</h3>
-            <p>{text}</p>
-          </article>
-        ))}
-      </section>
-
-      <section className="welcome-pricing">
-        <div>
-          <p className="page-kicker">Pricing</p>
-          <h2>One licence. No per-seat fees.</h2>
-          <p>
-            Your whole team uses the same workspace.
-            Maintenance keeps it updated and supported
-            after the first month.
-          </p>
-        </div>
-
-        <div className="billing-card">
-          <LicenceTerms />
-
-          <button
-            type="button"
-            className="button button-primary"
-            onClick={
-              live
-                ? () => goLive("/trial")
-                : tryDemo
-            }
-          >
-            {live
-              ? `Start the ${TRIAL_DAYS}-day free trial`
-              : "Try the demo"}
-          </button>
-        </div>
-      </section>
-
-      <footer className="welcome-footer">
-        <CarFront size={16} />
-        <span>FleetDesk</span>
-        {sales && (
-          <a href={`mailto:${sales}`}>{sales}</a>
-        )}
-      </footer>
-    </main>
+      <LegalFooter />
+    </div>
   );
 }

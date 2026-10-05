@@ -1,10 +1,23 @@
 # Architecture and data model
 
+## Two backends, one workflow layer
+
+Every screen and workflow imports Firestore from `lib/data/firestore.ts`, never from `firebase/firestore`. That facade has the SDK's exact signatures and routes each call to one of two backends:
+
+- **The demo** (`lib/data/local-firestore.ts`, `lib/data/local-backend.ts`): an in-browser implementation of the parts of Firestore the workflows use (references, transactions with optimistic retry, filtered and ordered queries with cursors, live listeners), persisted to IndexedDB. Sign-in checks the published demo accounts. Photos are stored inline as compressed data URLs instead of going to Cloudinary. Security rules are not emulated; the demo belongs to whoever holds the browser.
+- **Live**: Firebase, with every operational collection placed under `workspaces/{workspaceId}/`. The workspace comes from `accounts/{uid}` once the user signs in. `workspaces`, `accounts` and `trialEmails` are the only root collections the client touches.
+
+`lib/data/mode.ts` decides which, per browser: the visitor's choice on the welcome page, and always the demo on a build without Firebase configuration. Because the workflow code is shared, `tests/unit/demo-workspace.test.ts` runs the whole sample business through the real workflows against the demo store, and `pnpm demo:seed` runs the same sample through the live rules on the emulators.
+
+## Workspaces and licences
+
+`workspaces/{id}` holds the licence: `plan` (`trial` or `paid`), `trialStartedAt`, `licenceType`, `paidAt`. The rules open a workspace's data only to its approved members, and only while `plan == "paid"` or the trial is younger than seven days. A trial is created in one write together with the owner's account entry, their approved administrator profile, and a `trialEmails/{email}` claim that allows one trial per email. Billing is described in `billing.md`.
+
 ## Trust boundary
 
 The web application runs without a server of its own: the project stays on the Firebase Spark plan, so Cloud Functions are not deployed and every workflow executes in the browser against Firestore directly.
 
-Firebase Authentication identifies the caller. Authorisation is resolved from the caller's own `users/{uid}` profile, which must carry `status: "approved"` and a role of `admin` or `operations`; a browser cannot write those fields for itself. Firestore and Storage rules enforce the same check server-side, so they remain the real boundary: reads and writes are denied by default, financial reporting collections are admin-only, and ledger, audit and idempotency records cannot be edited or deleted from a browser.
+Firebase Authentication identifies the caller. Authorisation is resolved from the caller's own `workspaces/{workspaceId}/users/{uid}` profile, which must carry `status: "approved"` and a role of `admin` or `operations`; a browser cannot write those fields for itself. Firestore and Storage rules enforce the same check server-side, so they remain the real boundary: reads and writes are denied by default, financial reporting collections are admin-only, and ledger, audit and idempotency records cannot be edited or deleted from a browser.
 
 Because the workflows now run client-side, input validation in `lib/services/firestore-client.ts` is a correctness control rather than a trust boundary. Amounts are validated as whole non-negative cents within a fixed ceiling, odometer readings are converted and range-checked once, enum values are checked against fixed lists, and no `undefined` is ever written. Rate and quote snapshots are still read from the vehicle record inside the transaction rather than accepted from the form, so a tampered browser cannot change what a rental is priced at — but a determined staff account could write a financial document the rules allow it to write. Restoring server-side enforcement requires the Blaze plan and the callable functions kept in `functions/`.
 
@@ -15,6 +28,8 @@ Staff approval needs no server either. An administrator decides on the Staff scr
 The `functions/` directory is retained as the reference implementation of these workflows, including a provider-based contract send that the application does not use. It is not built, deployed or called.
 
 ## Collections
+
+Every collection below lives under `workspaces/{workspaceId}/`.
 
 | Collection | Purpose | Client access |
 | --- | --- | --- |

@@ -1,10 +1,5 @@
-import { LiveOnly } from "@/components/live-only";
-import { LoginForm } from "@/components/login-form";
+import { LoginEntry } from "@/components/login-entry";
 
 export default function LoginPage() {
-  return (
-    <LiveOnly>
-      <LoginForm />
-    </LiveOnly>
-  );
+  return <LoginEntry />;
 }

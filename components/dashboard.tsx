@@ -10,7 +10,7 @@ import {
   Clock3,
   RefreshCw,
   Wrench,
-} from "lucide-react";
+} from "@/components/icons";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "./app-shell";

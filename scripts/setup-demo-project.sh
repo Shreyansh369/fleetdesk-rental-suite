@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 #
+# The browser-only demo (any build without Firebase values) needs
+# none of this; use this script only for a shared online demo.
+#
 # Creates a hosted FleetDesk demo you can share with prospective
 # operators: a new Firebase project on the free Spark plan, with
 # email sign-in, Firestore and its rules, the app on Firebase
@@ -90,8 +93,9 @@ cat <<EOF
 
 FleetDesk demo is live:  https://$PROJECT.web.app
 
-Sign in with admin@demo.fleetdesk.app / DemoPass123!
-(operations staff: maria@, james@, priya@demo.fleetdesk.app, same password)
+Sign in with demo.admin@gmail.com / Demo@1234
+(also demo.manager@, demo.frontdesk@, demo.fleet@, demo.accounts@,
+demo.hr@ and demo.newhire@gmail.com, same password)
 
 Anyone with the link can sign in with these accounts and change the
 data, so share it only with people you are presenting to. Photo

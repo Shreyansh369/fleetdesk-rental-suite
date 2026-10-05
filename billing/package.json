@@ -1,0 +1,9 @@
+{
+  "name": "fleetdesk-billing",
+  "private": true,
+  "main": "lib/billing/src/index.js",
+  "engines": { "node": "22" },
+  "scripts": { "build": "tsc", "deploy": "firebase deploy --only functions:billing" },
+  "dependencies": { "firebase-admin": "^13.5.0", "firebase-functions": "^6.5.0", "stripe": "^19.1.0" },
+  "devDependencies": { "@types/node": "^24.5.2", "typescript": "^5.9.2" }
+}

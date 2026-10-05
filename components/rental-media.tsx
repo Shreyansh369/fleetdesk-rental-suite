@@ -5,7 +5,7 @@ import {
   ref,
 } from "firebase/storage";
 
-import { ImageOff, X } from "lucide-react";
+import { ImageOff, X } from "@/components/icons";
 
 import {
   useEffect,

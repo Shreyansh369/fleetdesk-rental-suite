@@ -17,7 +17,7 @@ import {
   Search,
   ShieldCheck,
   X,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useEffect,

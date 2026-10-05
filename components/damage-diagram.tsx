@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Undo2 } from "lucide-react";
+import { Trash2, Undo2 } from "@/components/icons";
 
 import { useState } from "react";
 

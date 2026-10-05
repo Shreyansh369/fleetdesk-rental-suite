@@ -18,7 +18,7 @@ import {
   ReceiptText,
   RefreshCw,
   WalletCards,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useCallback,

@@ -172,8 +172,9 @@ async function main(): Promise<void> {
   await workspaceRef.set({
     name: "Demo Car Rentals",
     ownerUid: "",
-    adminEmail: "admin@demo.fleetdesk.app",
+    adminEmail: "demo.admin@gmail.com",
     plan: "paid",
+    licenceType: "buyout",
     trialStartedAt: FieldValue.serverTimestamp(),
     paidAt: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),

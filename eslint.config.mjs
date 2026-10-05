@@ -3,7 +3,7 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 
 export default defineConfig([
   ...nextVitals,
-  globalIgnores([".next/**", "functions/lib/**", "reports/**", "node_modules/**"]),
+  globalIgnores([".next/**", "functions/lib/**", "billing/lib/**", "reports/**", "node_modules/**"]),
   {
     rules: {
       /*

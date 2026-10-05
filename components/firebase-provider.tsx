@@ -94,6 +94,12 @@ function workspaceFrom(
     ownerUid: String(data.ownerUid ?? ""),
     adminEmail: String(data.adminEmail ?? ""),
     plan: String(data.plan ?? ""),
+    licenceType:
+      data.licenceType === "subscription" ||
+      data.licenceType === "buyout"
+        ? data.licenceType
+        : null,
+    billingIssue: data.billingIssue === true,
     trialStartedAt: toDate(data.trialStartedAt),
     paidAt: toDate(data.paidAt),
     paymentSubmittedAt: toDate(

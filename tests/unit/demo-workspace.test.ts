@@ -12,8 +12,14 @@ import { forceBackendMode } from "@/lib/data/mode";
  */
 forceBackendMode("demo");
 
-const { loadDemoSampleData, listDemoProfiles, resetDemoWorkspace } =
-  await import("@/lib/demo/demo-workspace");
+const {
+  listDemoProfiles,
+  loadDemoSampleData,
+  resetDemoWorkspace,
+  signInToDemo,
+  signOutOfDemo,
+} = await import("@/lib/demo/demo-workspace");
+const { DEMO_PASSWORD, SAMPLE_STAFF } = await import("@/lib/demo/sample-data");
 const workflows = await import("@/lib/services/firestore-client");
 const { getLocalBackend } = await import("@/lib/data/local-backend");
 
@@ -22,13 +28,36 @@ describe("demo workspace", () => {
     await resetDemoWorkspace();
   });
 
-  it("starts with the visitor as its only, approved administrator", async () => {
+  it("starts signed out, with every published demo account ready", async () => {
+    expect(getLocalBackend().auth.currentUser).toBeNull();
+
     const profiles = await listDemoProfiles();
 
-    expect(profiles).toEqual([
-      expect.objectContaining({ uid: "demo-owner", role: "admin", status: "approved" }),
-    ]);
-    expect(getLocalBackend().auth.currentUser?.uid).toBe("demo-owner");
+    expect(profiles.map((profile) => profile.email).sort()).toEqual(
+      SAMPLE_STAFF.map((member) => member.email).sort(),
+    );
+    expect(profiles.find((profile) => profile.email === "demo.admin@gmail.com")).toMatchObject({
+      uid: "demo-admin",
+      role: "admin",
+      status: "approved",
+    });
+    expect(profiles.find((profile) => profile.email === "demo.newhire@gmail.com")).toMatchObject({
+      status: "pending",
+    });
+  });
+
+  it("signs in with a demo email and the demo password, and nothing else", async () => {
+    await expect(signInToDemo("demo.admin@gmail.com", "wrong")).rejects.toThrow("do not match");
+    await expect(signInToDemo("someone@gmail.com", DEMO_PASSWORD)).rejects.toThrow("do not match");
+
+    await signInToDemo("Demo.FrontDesk@gmail.com", DEMO_PASSWORD);
+    expect(getLocalBackend().auth.currentUser?.uid).toBe("demo-maria");
+
+    await signOutOfDemo();
+    expect(getLocalBackend().auth.currentUser).toBeNull();
+
+    await signInToDemo("demo.admin@gmail.com", DEMO_PASSWORD);
+    expect(getLocalBackend().auth.currentUser?.uid).toBe("demo-admin");
   });
 
   it(
@@ -39,7 +68,7 @@ describe("demo workspace", () => {
       expect(summary.vehicles).toBe(14);
       expect(summary.customers).toBe(18);
       expect(summary.pastRentals).toBeGreaterThan(50);
-      expect(getLocalBackend().auth.currentUser?.uid).toBe("demo-owner");
+      expect(getLocalBackend().auth.currentUser?.uid).toBe("demo-admin");
 
       const dashboard = await workflows.callFirestoreOperation<
         unknown,
@@ -78,10 +107,11 @@ describe("demo workspace", () => {
     expect(db.exportSerialized()).toBe(before);
   });
 
-  it("empties completely on reset, keeping the administrator", async () => {
+  it("empties completely on reset, keeping the demo accounts and signing out", async () => {
     await resetDemoWorkspace();
 
     const profiles = await listDemoProfiles();
-    expect(profiles.map((profile) => profile.uid)).toEqual(["demo-owner"]);
+    expect(profiles).toHaveLength(SAMPLE_STAFF.length);
+    expect(getLocalBackend().auth.currentUser).toBeNull();
   });
 });

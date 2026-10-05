@@ -11,7 +11,7 @@ import {
 import {
   ReceiptText,
   RefreshCw,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   useEffect,

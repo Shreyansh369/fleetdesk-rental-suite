@@ -16,15 +16,14 @@ import {
 import {
   Building2,
   ShieldAlert,
-} from "lucide-react";
+} from "@/components/icons";
 
 import {
   getFirebaseClient,
 } from "@/lib/firebase/client";
 
 import { backendModeChosen } from "@/lib/data/mode";
-import { DEMO_OWNER_UID } from "@/lib/data/local-backend";
-import { switchDemoProfile } from "@/lib/demo/demo-workspace";
+import { signOutOfDemo } from "@/lib/demo/demo-workspace";
 import { licenceStatus } from "@/lib/license";
 
 import {
@@ -99,11 +98,7 @@ export function ProtectedPage({
       auth.status === "ready" &&
       !auth.user
     ) {
-      router.replace(
-        auth.mode === "demo"
-          ? "/welcome"
-          : "/login",
-      );
+      router.replace("/login");
     }
   }, [
     modeChosen,
@@ -311,12 +306,10 @@ export function ProtectedPage({
               type="button"
               className="button button-primary"
               onClick={() =>
-                void switchDemoProfile(
-                  DEMO_OWNER_UID,
-                )
+                void signOutOfDemo()
               }
             >
-              View the demo as the administrator
+              Sign in with another demo account
             </button>
           ) : (
             <button

@@ -1,4 +1,9 @@
 import {
+  DEMO_PASSWORD,
+  SAMPLE_STAFF,
+} from "@/lib/demo/sample-data";
+
+import {
   LOCAL_MARKER,
   LocalFirestore,
   localDoc,
@@ -8,16 +13,21 @@ import {
 } from "./local-firestore";
 
 /*
- * The demo workspace: a local store, and a signed-in "user"
- * that is simply whichever staff profile in that store the
- * visitor is looking through. The visitor starts as the
- * administrator and can switch to any other profile from the
- * demo bar, which is how the employee side of the workflows —
- * a discount waiting for approval, a contract submitted for
- * review — can be tried by one person.
+ * The demo workspace: a local store, and sign-in against the
+ * demo accounts kept in it. Every demo account shares one
+ * published password (DEMO_PASSWORD); nothing here is a secret
+ * or protects anything, it only lets a visitor sign in as the
+ * owner, a manager or a desk employee and see the workspace the
+ * way each of them would. That is how the employee side of the
+ * workflows — a discount waiting for approval, a contract
+ * submitted for review — can be tried by one person.
  */
 
-export const DEMO_OWNER_UID = "demo-owner";
+export const DEMO_OWNER_UID = "demo-admin";
+
+export function demoUid(key: string): string {
+  return `demo-${key}`;
+}
 
 const DATABASE_NAME = "fleetdesk-demo";
 const STORE_NAME = "state";
@@ -167,20 +177,49 @@ export class LocalAuth {
 
   private async restore(): Promise<void> {
     await this.db.ready;
-    await ensureDemoOwner(this.db);
+    await ensureDemoAccounts(this.db);
 
     const remembered = rememberedSignedIn();
+    const profile = remembered
+      ? this.db.readStored(`users/${remembered}`)
+      : undefined;
 
-    const uid =
-      remembered &&
-      this.db.readStored(`users/${remembered}`)
-        ? remembered
-        : DEMO_OWNER_UID;
+    this.currentUser =
+      remembered && profile
+        ? userFromProfile(remembered, profile.data)
+        : null;
+  }
 
-    this.currentUser = userFromProfile(
-      uid,
-      this.db.readStored(`users/${uid}`)?.data,
-    );
+  /*
+   * Signs in with a demo account's email and the demo password.
+   * Any account in the store can sign in — including one a
+   * visitor added from Demo tools — and lands where its approval
+   * and role allow, exactly as a live sign-in does.
+   */
+  async signInWithPassword(
+    email: string,
+    password: string,
+  ): Promise<void> {
+    await this.ready;
+
+    const wanted = email.trim().toLowerCase();
+
+    const match = this.db
+      .documentsIn("users")
+      .find(
+        ([, stored]) =>
+          String(stored.data.email ?? "")
+            .trim()
+            .toLowerCase() === wanted,
+      );
+
+    if (!match || password !== DEMO_PASSWORD) {
+      throw new Error(
+        "That email and password do not match a demo account. The demo accounts are listed on this page.",
+      );
+    }
+
+    await this.signInAs(match[0]);
   }
 
   onAuthStateChanged(
@@ -256,9 +295,8 @@ export class LocalAuth {
   }
 
   async restart(): Promise<void> {
-    await ensureDemoOwner(this.db);
-    rememberSignedIn(null);
-    await this.signInAs(DEMO_OWNER_UID);
+    await ensureDemoAccounts(this.db);
+    await this.signOut();
   }
 }
 
@@ -278,35 +316,57 @@ function userFromProfile(
 }
 
 /*
- * The visitor's own administrator profile. It exists in every
- * demo, empty or not, so the workspace always has somebody who
- * can approve staff and see the finances.
+ * The demo accounts exist in every demo, empty or not, so the
+ * published sign-ins always work and the workspace always has
+ * administrators to approve staff and see the finances. Business
+ * data — vehicles, customers, bookings — starts empty, for the
+ * visitor's own numbers, until they load the sample business.
  */
-export async function ensureDemoOwner(
+export async function ensureDemoAccounts(
   db: LocalFirestore,
-): Promise<void> {
+): Promise<Record<string, string>> {
   await db.ready;
 
-  if (db.readStored(`users/${DEMO_OWNER_UID}`)) {
-    return;
+  const uids: Record<string, string> = {};
+  const batch = localWriteBatch(db);
+  let missing = 0;
+
+  for (const member of SAMPLE_STAFF) {
+    const uid = demoUid(member.key);
+    uids[member.key] = uid;
+
+    if (db.readStored(`users/${uid}`)) {
+      continue;
+    }
+
+    missing += 1;
+
+    batch.set(localDoc(db, "users", uid), {
+      fullName: member.fullName,
+      email: member.email,
+      jobTitle: member.title,
+      mobile: member.mobile,
+      age: member.age,
+      requestedRole: member.role,
+      emailVerified: true,
+      ...(member.status === "approved"
+        ? {
+            role: member.role,
+            status: "approved",
+            decidedAt: localServerTimestamp(),
+            decidedByNameSnapshot: "Alex Morgan",
+          }
+        : { role: null, status: "pending" }),
+      createdAt: localServerTimestamp(),
+      updatedAt: localServerTimestamp(),
+    });
   }
 
-  const batch = localWriteBatch(db);
+  if (missing > 0) {
+    await batch.commit();
+  }
 
-  batch.set(localDoc(db, "users", DEMO_OWNER_UID), {
-    fullName: "Demo Administrator",
-    email: "you@demo.fleetdesk.app",
-    mobile: "+1 555 010 0000",
-    age: 35,
-    requestedRole: "admin",
-    role: "admin",
-    status: "approved",
-    emailVerified: true,
-    createdAt: localServerTimestamp(),
-    updatedAt: localServerTimestamp(),
-  });
-
-  await batch.commit();
+  return uids;
 }
 
 /* =========================================================
