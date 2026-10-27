@@ -13,12 +13,14 @@ async function run(vp, tag) {
   await page.getByPlaceholder('Enter your password').fill('DemoPass123!');
   await page.locator('button[type=submit]').first().click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 60000 }).catch(async (e) => { await page.screenshot({ path: `${OUT}/${tag}-after-login.png` }); console.log('AFTER', page.url(), (await page.textContent('body')).slice(0, 400)); });
-  await page.waitForLoadState('networkidle'); await page.waitForTimeout(2500);
+  await page.waitForTimeout(5000);
   for (const r of ['/', '/rentals.html', '/vehicles.html', '/finance.html', '/customers.html', '/expenses.html', '/staff.html']) {
-    await page.goto(BASE + r, { waitUntil: 'networkidle' }); await page.waitForTimeout(2500);
     const name = r === '/' ? 'home' : r.replace('/', '').replace('.html', '');
-    await page.screenshot({ path: `${OUT}/${tag}-${name}.png` });
-    console.log('shot', tag, name);
+    try {
+      await page.goto(BASE + r, { waitUntil: 'load', timeout: 45000 }); await page.waitForTimeout(6000);
+      await page.screenshot({ path: `${OUT}/${tag}-${name}.png` });
+      console.log('shot', tag, name);
+    } catch (e) { console.log('fail', tag, name, String(e).slice(0, 150)); }
   }
   await ctx.close();
 }
