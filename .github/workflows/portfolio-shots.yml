@@ -46,11 +46,15 @@ jobs:
       - name: Serve and shoot
         continue-on-error: true
         run: |
-          nohup npx -y serve@14 out -l 3000 > serve.log 2>&1 &
-          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.56.0 >/dev/null && npx playwright install --with-deps chromium >/dev/null
-          cd "$GITHUB_WORKSPACE" && cp portfolio/shoot.mjs /tmp/pw/ && cd /tmp/pw && node shoot.mjs > "$GITHUB_WORKSPACE/shoot.log" 2>&1 || true
-          mkdir -p "$GITHUB_WORKSPACE/portfolio/shots" && cp -r /tmp/pw/portfolio/shots/. "$GITHUB_WORKSPACE/portfolio/shots/" || true
-          cd "$GITHUB_WORKSPACE" && cp *.log portfolio/ 2>/dev/null || true
+          W="$GITHUB_WORKSPACE"
+          (cd out && nohup python3 -m http.server 3000 --bind 127.0.0.1 > "$W/serve.log" 2>&1 &)
+          sleep 3; curl -s -o /dev/null -w "serve %{http_code}\n" http://127.0.0.1:3000/login/ | tee -a "$W/shoot.log"
+          mkdir -p /tmp/pw && cd /tmp/pw && npm init -y > /dev/null
+          npm i playwright@1.56.0 >> "$W/shoot.log" 2>&1
+          npx playwright install --with-deps chromium >> "$W/shoot.log" 2>&1
+          cp "$W/portfolio/shoot.mjs" /tmp/pw/shoot.mjs
+          node shoot.mjs >> "$W/shoot.log" 2>&1 || echo "shoot exit $?" >> "$W/shoot.log"
+          mkdir -p "$W/portfolio/shots" && cp -r /tmp/pw/portfolio/shots/. "$W/portfolio/shots/" 2>/dev/null || true
       - name: Commit screenshots
         if: always()
         run: |
