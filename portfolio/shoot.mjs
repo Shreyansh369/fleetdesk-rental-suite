@@ -7,15 +7,16 @@ async function run(vp, tag) {
   const ctx = await b.newContext({ viewport: vp, deviceScaleFactor: 2 });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log('pageerror', String(e).slice(0, 200)));
-  await page.goto(BASE + '/login/', { waitUntil: 'networkidle' });
+  await page.goto(BASE + '/login.html', { waitUntil: 'networkidle' });
+  try { await page.waitForSelector('input[type=email]', { timeout: 30000 }); } catch (e) { await page.screenshot({ path: `${OUT}/${tag}-login-fail.png` }); console.log('BODY', (await page.textContent('body')).slice(0, 600)); throw e; }
   await page.getByPlaceholder('name@company.com').fill('admin@demo.fleetdesk.app');
   await page.getByPlaceholder('Enter your password').fill('DemoPass123!');
   await page.locator('button[type=submit]').first().click();
-  await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 60000 });
+  await page.waitForURL((u) => !u.pathname.startsWith('/login'), { timeout: 60000 }).catch(async (e) => { await page.screenshot({ path: `${OUT}/${tag}-after-login.png` }); console.log('AFTER', page.url(), (await page.textContent('body')).slice(0, 400)); });
   await page.waitForLoadState('networkidle'); await page.waitForTimeout(2500);
-  for (const r of ['/', '/rentals/', '/vehicles/', '/finance/', '/customers/', '/expenses/', '/staff/']) {
+  for (const r of ['/', '/rentals.html', '/vehicles.html', '/finance.html', '/customers.html', '/expenses.html', '/staff.html']) {
     await page.goto(BASE + r, { waitUntil: 'networkidle' }); await page.waitForTimeout(2500);
-    const name = r === '/' ? 'home' : r.replaceAll('/', '');
+    const name = r === '/' ? 'home' : r.replace('/', '').replace('.html', '');
     await page.screenshot({ path: `${OUT}/${tag}-${name}.png` });
     console.log('shot', tag, name);
   }
