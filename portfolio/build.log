@@ -1,7 +1,7 @@
 $ next build
 ▲ Next.js 16.3.8 (Turbopack)
 - Environments: .env.local
-✓ Running next.config.ts took 28ms
+✓ Running next.config.ts took 27ms
 ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
 Attention: Next.js now collects completely anonymous telemetry regarding usage.
 This information is used to shape Next.js' roadmap and prioritize features.
@@ -10,15 +10,15 @@ https://nextjs.org/telemetry
 
 
   Creating an optimized production build ...
-✓ Compiled successfully in 6.7s
+✓ Compiled successfully in 7.3s
   Running TypeScript ...
-  Finished TypeScript in 7.5s ...
+  Finished TypeScript in 7.3s ...
   Collecting page data using 3 workers ...
   Generating static pages using 3 workers (0/12) ...
   Generating static pages using 3 workers (3/12) 
   Generating static pages using 3 workers (6/12) 
   Generating static pages using 3 workers (9/12) 
-✓ Generating static pages using 3 workers (12/12) in 553ms
+✓ Generating static pages using 3 workers (12/12) in 549ms
   Finalizing page optimization ...
 
 Route (app)
