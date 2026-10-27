@@ -1,0 +1,14 @@
+$ tsx scripts/seed-demo.ts
+Seeding demo data into demo-fleetdesk (emulators)…
+  14 vehicles
+  18 customers
+  189 past rentals over six months
+  27 expenses
+  today's bookings, rentals out, a late return, payments, a discount request and agreements
+
+Demo accounts (password for all: DemoPass123!)
+  admin@demo.fleetdesk.app     admin
+  maria@demo.fleetdesk.app     operations
+  james@demo.fleetdesk.app     operations
+  priya@demo.fleetdesk.app     operations
+  tom@demo.fleetdesk.app       operations (waiting for approval)
