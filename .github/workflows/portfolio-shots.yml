@@ -16,8 +16,10 @@ jobs:
         with: { node-version: 22, cache: pnpm, cache-dependency-path: pnpm-lock.yaml }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile > install.log 2>&1 || (tail -40 install.log; exit 1)
+        continue-on-error: true
       - name: Environment
+        continue-on-error: true
         run: |
           cat > .env.local <<'ENV'
           NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true
@@ -31,24 +33,30 @@ jobs:
           NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET=demo
           ENV
       - name: Start emulators
+        continue-on-error: true
         run: |
           nohup pnpm exec firebase emulators:start --only auth,firestore,storage --project demo-fleetdesk > emu.log 2>&1 &
           for i in $(seq 1 90); do curl -s localhost:8080 >/dev/null && curl -s localhost:9099 >/dev/null && break; sleep 2; done
           tail -5 emu.log
-      - run: pnpm demo:seed
+      - run: pnpm demo:seed > seed.log 2>&1
+        continue-on-error: true
         env: { FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080, FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099, FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199, GCLOUD_PROJECT: demo-fleetdesk }
-      - run: pnpm build
+      - run: pnpm build > build.log 2>&1
+        continue-on-error: true
       - name: Serve and shoot
+        continue-on-error: true
         run: |
           nohup npx -y serve@14 out -l 3000 > serve.log 2>&1 &
           mkdir -p /tmp/pw && cd /tmp/pw && npm init -y >/dev/null && npm i playwright@1.56.0 >/dev/null && npx playwright install --with-deps chromium >/dev/null
-          cd "$GITHUB_WORKSPACE" && cp portfolio/shoot.mjs /tmp/pw/ && cd /tmp/pw && node shoot.mjs || true
+          cd "$GITHUB_WORKSPACE" && cp portfolio/shoot.mjs /tmp/pw/ && cd /tmp/pw && node shoot.mjs > "$GITHUB_WORKSPACE/shoot.log" 2>&1 || true
           mkdir -p "$GITHUB_WORKSPACE/portfolio/shots" && cp -r /tmp/pw/portfolio/shots/. "$GITHUB_WORKSPACE/portfolio/shots/" || true
-          cd "$GITHUB_WORKSPACE" && cp emu.log serve.log portfolio/ || true
+          cd "$GITHUB_WORKSPACE" && cp *.log portfolio/ 2>/dev/null || true
       - name: Commit screenshots
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898231+github-actions[bot]@users.noreply.github.com"
+          mkdir -p portfolio && cp *.log portfolio/ 2>/dev/null || true
           git add -f portfolio
           git commit -m "Portfolio screenshots [shots]" || echo nothing
           git push origin HEAD:portfolio-shots
