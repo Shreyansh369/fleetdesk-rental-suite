@@ -4,16 +4,17 @@ Lockfile is up to date, resolution step is skipped
 Progress: resolved 1, reused 0, downloaded 0, added 0
 Packages: +1081
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Progress: resolved 1081, reused 344, downloaded 0, added 0
-Progress: resolved 1081, reused 954, downloaded 0, added 0
+Progress: resolved 1081, reused 217, downloaded 0, added 0
+Progress: resolved 1081, reused 789, downloaded 0, added 0
 Packages are hard linked from the content-addressable store to the virtual store.
   Content-addressable store is at: /home/runner/setup-pnpm/node_modules/.bin/store/v11
   Virtual store is at:             node_modules/.pnpm
-Progress: resolved 1081, reused 1081, downloaded 0, added 125
-Progress: resolved 1081, reused 1081, downloaded 0, added 390
-Progress: resolved 1081, reused 1081, downloaded 0, added 757
+Progress: resolved 1081, reused 1081, downloaded 0, added 4
+Progress: resolved 1081, reused 1081, downloaded 0, added 170
+Progress: resolved 1081, reused 1081, downloaded 0, added 434
+Progress: resolved 1081, reused 1081, downloaded 0, added 692
 Progress: resolved 1081, reused 1081, downloaded 0, added 1081, done
-✓ Lockfile passes supply-chain policies (1211 entries in 8.3s)
+✓ Lockfile passes supply-chain policies (1211 entries in 9.2s)
 .../node_modules/protobufjs postinstall$ node scripts/postinstall
 .../node_modules/unrs-resolver postinstall$ node postinstall.js
 .../node_modules/protobufjs postinstall: Done
@@ -45,4 +46,4 @@ devDependencies:
 + vitest 3.2.7
 + xlsx 0.18.5
 
-Done in 9.1s using pnpm v11.19.0
+Done in 10.3s using pnpm v11.19.0
