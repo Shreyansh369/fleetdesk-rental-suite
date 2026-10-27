@@ -4,33 +4,20 @@ Lockfile is up to date, resolution step is skipped
 Progress: resolved 1, reused 0, downloaded 0, added 0
 Packages: +1081
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Progress: resolved 1081, reused 0, downloaded 0, added 0
-Progress: resolved 1081, reused 0, downloaded 61, added 0
+Progress: resolved 1081, reused 707, downloaded 0, added 0
 Packages are hard linked from the content-addressable store to the virtual store.
   Content-addressable store is at: /home/runner/setup-pnpm/node_modules/.bin/store/v11
   Virtual store is at:             node_modules/.pnpm
-Progress: resolved 1081, reused 0, downloaded 135, added 8
-Progress: resolved 1081, reused 0, downloaded 308, added 23
-Progress: resolved 1081, reused 0, downloaded 568, added 58
-Progress: resolved 1081, reused 0, downloaded 840, added 81
-✓ Lockfile passes supply-chain policies (1211 entries in 6.9s)
-Progress: resolved 1081, reused 0, downloaded 1081, added 436
-Progress: resolved 1081, reused 0, downloaded 1081, added 1080
-Progress: resolved 1081, reused 0, downloaded 1081, added 1081
-Progress: resolved 1081, reused 0, downloaded 1081, added 1081, done
+Progress: resolved 1081, reused 1081, downloaded 0, added 1
+Progress: resolved 1081, reused 1081, downloaded 0, added 100
+Progress: resolved 1081, reused 1081, downloaded 0, added 437
+Progress: resolved 1081, reused 1081, downloaded 0, added 950
+Progress: resolved 1081, reused 1081, downloaded 0, added 1081, done
+✓ Lockfile passes supply-chain policies (1211 entries in 7s)
 .../node_modules/protobufjs postinstall$ node scripts/postinstall
-.../node_modules/@firebase/util postinstall$ node ./postinstall.js
-.../node_modules/protobufjs postinstall: Done
 .../node_modules/unrs-resolver postinstall$ node postinstall.js
-.../.pnpm/re2@1.26.1/node_modules/re2 install$ install-from-cache --artifact build/Release/re2.node --host-var RE2_DOWNLOAD_MIRROR --skip-path-var RE2_DOWNLOAD_SKIP_PATH --skip-ver-var RE2_DOWNLOAD_SKIP_VER --force-build-var RE2_DOWNLOAD_FORCE_BUILD || node-gyp -j max rebuild
-.../node_modules/@firebase/util postinstall: Done
+.../node_modules/protobufjs postinstall: Done
 .../node_modules/unrs-resolver postinstall: Done
-.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js
-.../.pnpm/re2@1.26.1/node_modules/re2 install: Trying https://github.com/uhop/node-re2/releases/download/1.26.1/linux-x64-127.br ...
-.../esbuild@0.28.2/node_modules/esbuild postinstall: Done
-.../.pnpm/re2@1.26.1/node_modules/re2 install: Writing to build/Release/re2.node ...
-.../.pnpm/re2@1.26.1/node_modules/re2 install: Done.
-.../.pnpm/re2@1.26.1/node_modules/re2 install: Done
 
 dependencies:
 + firebase 12.17.1
@@ -58,4 +45,4 @@ devDependencies:
 + vitest 3.2.7
 + xlsx 0.18.5
 
-Done in 11.5s using pnpm v11.19.0
+Done in 7.7s using pnpm v11.19.0
